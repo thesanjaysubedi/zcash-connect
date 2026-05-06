@@ -4,3 +4,4 @@ dist/
 .mcp.json
 .DS_Store
 *.log
+web/dist/
