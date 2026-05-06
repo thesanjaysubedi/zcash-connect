@@ -15,7 +15,8 @@ import {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+const WEB_DIST = path.join(__dirname, '../web/dist');
+app.use(express.static(WEB_DIST));
 
 // ── Environment ─────────────────────────────────────────────────────
 const LIGHTWALLETD_HOST = process.env.LIGHTWALLETD_HOST ?? 'zec.rocks:443';
@@ -241,6 +242,30 @@ app.get('/address/:addr/details', (req, res) => {
   } catch (e) {
     return res.status(400).json({ error: (e as Error).message });
   }
+});
+
+app.get('/merchant', (_req, res) => {
+  return res.json({
+    address:         MERCHANT_ADDRESS,
+    network:         NETWORK,
+    receiverDetails: merchantAddressDetails,
+  });
+});
+
+// SPA fallback: any non-API GET that doesn't match a static file falls through here
+// and gets served the React app's index.html. The negative lookahead avoids
+// catching the API routes above.
+app.get(/^\/(?!invoices|health|uris|address|merchant).*/, (_req, res) => {
+  const indexPath = path.join(WEB_DIST, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(500).send(
+        '<h1>Frontend not built</h1>' +
+        '<p>Run <code>npm run build</code> to build the React app, ' +
+        'or <code>npm run dev</code> to start the Vite dev server on port 5173.</p>'
+      );
+    }
+  });
 });
 
 // ── Block scanner ────────────────────────────────────────────────────
