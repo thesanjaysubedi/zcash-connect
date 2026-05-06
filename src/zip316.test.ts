@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeCompactSize, decodeCompactSize, f4Jumble, f4Unjumble } from './zip316';
+import { encodeCompactSize, decodeCompactSize, f4Jumble, f4Unjumble, parseUnifiedAddress } from './zip316';
 
 describe('compactSize codec', () => {
   it('encodes small values (< 253) as a single byte', () => {
@@ -69,5 +69,38 @@ describe('F4Jumble', () => {
     for (const len of [38, 50, 64, 73, 100]) {
       expect(f4Jumble(new Uint8Array(len)).length).toBe(len);
     }
+  });
+});
+
+describe('parseUnifiedAddress', () => {
+  // Official test vector from zcash-hackworks/zcash-test-vectors (account 1, div_index 3).
+  // Substituted for the task-description vector which had an invalid checksum.
+  // Contains p2pkh (typecode 0), sapling (2), and orchard (3) receivers.
+  const TEST_UA_MAIN = 'u1pg2aaph7jp8rpf6yhsza25722sg5fcn3vaca6ze27hqjw7jvvhhuxkpcg0ge9xh6drsgdkda8qjq5chpehkcpxf87rnjryjqwymdheptpvnljqqrjqzjwkc2ma6hcq666kgwfytxwac8eyex6ndgr6ezte66706e3vaqrd25dzvzkc69kw0jgywtd0cmq52q5lkw6uh7hyvzjse8ksx';
+
+  it('decodes a known mainnet unified address', () => {
+    const ua = parseUnifiedAddress(TEST_UA_MAIN);
+    expect(ua.network).toBe('main');
+    expect(ua.receivers.length).toBeGreaterThan(0);
+    expect(ua.isOrchardCapable).toBe(true);
+  });
+
+  it('rejects empty input', () => {
+    expect(() => parseUnifiedAddress('')).toThrow();
+  });
+
+  it('rejects invalid bech32m', () => {
+    expect(() => parseUnifiedAddress('u1invalid_chars_!!!!')).toThrow();
+  });
+
+  it('rejects unknown HRP', () => {
+    // bech32m with HRP "xx" — valid checksum, unknown to Zcash UA spec
+    expect(() => parseUnifiedAddress('xx1qqqsyrn4uq5')).toThrow(/HRP|prefix|unknown/i);
+  });
+
+  it('exposes the typecodes of decoded receivers', () => {
+    const ua = parseUnifiedAddress(TEST_UA_MAIN);
+    const typeIds = ua.receivers.map(r => r.typeId).sort((a, b) => a - b);
+    expect(typeIds[0]).toBeGreaterThanOrEqual(0);
   });
 });

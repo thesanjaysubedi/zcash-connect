@@ -7,6 +7,8 @@
 // API — blake2bInit(outlen, key, salt, personal) / blake2bUpdate / blake2bFinal
 // — which is both fully typed and supports personalization.
 
+import { bech32m } from 'bech32';
+
 // ── compactSize: Bitcoin/Zcash variable-length integer ───────────────
 // < 253           → 1 byte (the value)
 // ≤ 0xFFFF        → 0xFD + 2 bytes LE
@@ -230,4 +232,125 @@ export function f4Unjumble(input: Uint8Array): Uint8Array {
   out.set(a, 0);
   out.set(b2, lL);
   return out;
+}
+
+// ── Public types ──────────────────────────────────────────────────────────────
+
+export type Network = 'main' | 'test' | 'regtest';
+
+export type ReceiverType = 'orchard' | 'sapling' | 'p2pkh' | 'p2sh' | 'unknown';
+
+export interface Receiver {
+  type:   ReceiverType;
+  typeId: number;   // raw TLV typecode byte (0=p2pkh, 1=p2sh, 2=sapling, 3=orchard)
+  length: number;   // raw TLV value length in bytes
+}
+
+export interface UnifiedAddress {
+  network:          Network;
+  receivers:        Receiver[];
+  isOrchardCapable: boolean;
+}
+
+// ── HRP → network ────────────────────────────────────────────────────────────
+
+const HRP_TO_NETWORK: Record<string, Network> = {
+  u:        'main',
+  utest:    'test',
+  uregtest: 'regtest',
+};
+
+// Expected lengths for known typecodes; unknown typecodes pass through.
+const KNOWN_RECEIVER_LENGTHS: Record<number, { name: ReceiverType; len: number }> = {
+  0x00: { name: 'p2pkh',   len: 20 },
+  0x01: { name: 'p2sh',    len: 20 },
+  0x02: { name: 'sapling', len: 43 },
+  0x03: { name: 'orchard', len: 43 },
+};
+
+// ── textToBytes helper ────────────────────────────────────────────────────────
+
+function textToBytes(s: string): Uint8Array {
+  return new TextEncoder().encode(s);
+}
+
+// ── parseUnifiedAddress ───────────────────────────────────────────────────────
+
+export function parseUnifiedAddress(addr: string): UnifiedAddress {
+  if (!addr || addr.length === 0) {
+    throw new Error('parseUnifiedAddress: empty input');
+  }
+
+  // Step 1: bech32m decode (generous LIMIT for long UAs).
+  let decoded: { prefix: string; words: number[] };
+  try {
+    decoded = bech32m.decode(addr.toLowerCase(), 1024);
+  } catch (e) {
+    throw new Error(`parseUnifiedAddress: invalid bech32m: ${(e as Error).message}`);
+  }
+
+  // Step 2: HRP → network
+  const network = HRP_TO_NETWORK[decoded.prefix];
+  if (!network) {
+    throw new Error(`parseUnifiedAddress: unknown HRP "${decoded.prefix}"`);
+  }
+
+  // Step 3: 5-bit words → 8-bit bytes
+  const bytes = new Uint8Array(bech32m.fromWords(decoded.words));
+
+  // Step 4: F4Unjumble
+  let raw: Uint8Array;
+  try {
+    raw = f4Unjumble(bytes);
+  } catch (e) {
+    throw new Error(`parseUnifiedAddress: F4Unjumble failed: ${(e as Error).message}`);
+  }
+
+  // Step 5: verify and strip the 16-byte HRP padding at the end
+  if (raw.length < 16) {
+    throw new Error('parseUnifiedAddress: payload too short for HRP padding');
+  }
+  const padding = new Uint8Array(16);
+  const hrpBytes = textToBytes(decoded.prefix);
+  padding.set(hrpBytes, 0); // rest is already zero
+  const padStart = raw.length - 16;
+  for (let i = 0; i < 16; i++) {
+    if (raw[padStart + i] !== padding[i]) {
+      throw new Error('parseUnifiedAddress: HRP padding mismatch (corrupted UA or wrong HRP)');
+    }
+  }
+  const tlv = raw.subarray(0, padStart);
+
+  // Step 6: walk TLV — typecode (compactSize), length (compactSize), value (skip)
+  const receivers: Receiver[] = [];
+  let pos = 0;
+  while (pos < tlv.length) {
+    const t = decodeCompactSize(tlv, pos);
+    pos += t.bytesRead;
+    const l = decodeCompactSize(tlv, pos);
+    pos += l.bytesRead;
+    if (pos + l.value > tlv.length) {
+      throw new Error(
+        `parseUnifiedAddress: TLV claims length ${l.value} but only ${tlv.length - pos} bytes remain`,
+      );
+    }
+    pos += l.value; // skip address bytes; no cryptographic validation needed
+
+    const known = KNOWN_RECEIVER_LENGTHS[t.value];
+    receivers.push({
+      type:   known ? known.name : 'unknown',
+      typeId: t.value,
+      length: l.value,
+    });
+  }
+
+  if (receivers.length === 0) {
+    throw new Error('parseUnifiedAddress: no receivers decoded');
+  }
+
+  return {
+    network,
+    receivers,
+    isOrchardCapable: receivers.some(r => r.type === 'orchard'),
+  };
 }
