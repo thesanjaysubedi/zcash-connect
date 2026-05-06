@@ -8,7 +8,9 @@
 ZcashConnect is a developer SDK for accepting shielded ZEC payments.
 This repository is the MVP prototype that demonstrates:
 
-- ZIP-321 payment request URI generation for Orchard unified addresses
+- ZIP-321 payment request URI generation (build + parse, single + multi-recipient)
+- ZIP-316 Unified Address parsing — bech32m, F4Jumble, TLV receiver decoding,
+  implemented from scratch and tested against ZIP-316
 - gRPC connection to the Zcash network via lightwalletd
 - Invoice lifecycle management: CREATED → DETECTING → CONFIRMED → EXPIRED
 - A clean merchant demo page that works in any browser
@@ -84,12 +86,14 @@ Open http://localhost:3000.
 
 ## API
 
-| Method | Path | Description |
+| Method | Path                       | Description |
 |---|---|---|
-| POST | /invoices     | Create a payment invoice |
-| GET  | /invoices/:id | Get invoice status |
-| GET  | /invoices     | List all invoices |
-| GET  | /health       | Verify server and Zcash network connection |
+| POST | /invoices                    | Create a payment invoice. Body: `{ amountZec, ... }` (single) or `{ payments: [...] }` (multi-recipient) |
+| GET  | /invoices/:id                | Get invoice status |
+| GET  | /invoices                    | List all invoices |
+| GET  | /health                      | Verify server and Zcash network connection |
+| POST | /uris/parse                  | Parse a `zcash:` URI back to structured fields. Body: `{ uri }` |
+| GET  | /address/:addr/details       | Decode a Zcash unified address: receivers, network, Orchard capability |
 
 ## Sample generated URI
 
@@ -134,6 +138,43 @@ Covers ZIP-321 URI generation (with the 512-byte memo cap, exact-boundary
 assertions, and `%20`-vs-`+` URL encoding) and the invoice state machine
 (create/get/list, status transitions, expiry-by-block-height). Network
 integration is verified by `GET /health` against `zec.rocks:443`.
+
+## Zcash spec coverage
+
+This MVP implements the following Zcash specifications from scratch:
+
+### ZIP-321 (Payment Request URIs) — full
+
+- Builder: single-recipient (`zcash:<addr>?amount=...`) and multi-recipient
+  (`zcash:?address=...&address.1=...`).
+- Parser: round-trip property tested against the builder. Handles both URI
+  forms (path-component address vs `address=` query param). Rejects the
+  forbidden `zcash://` form, percent-encoded scheme/parameter names, and
+  `address.0` (paramindex must not have a leading zero).
+- Memo encoding: base64url with no padding, 512-byte cap on the encoded
+  memo. RFC 3986 percent-encoding for spaces in `label` / `message` (not
+  the `+` form-encoded variant).
+
+### ZIP-316 (Unified Addresses) — decoder
+
+- Bech32m envelope decode (using the `bech32` npm package for the envelope
+  only — all Zcash-specific logic is implemented locally).
+- F4Jumble: the 4-round Feistel network defined in ZIP-316 §Jumbling,
+  using personalized BLAKE2b (`UA_F4Jumble_H` and `UA_F4Jumble_G`).
+  Implemented from scratch in `src/zip316.ts`. Round-trip property tested
+  at lengths 48, 64, 100, and 248 bytes.
+- HRP padding strip (16-byte zero-padded HRP appended to the TLV).
+- Variable-length integer (Bitcoin/Zcash `compactSize`) codec.
+- TLV receiver decoder for typecodes 0 (P2PKH), 1 (P2SH), 2 (Sapling),
+  3 (Orchard); unknown typecodes pass through as `unknown` rather than
+  causing parse failure (per the ZIP-316 forward-compatibility intent).
+
+### Out of scope (still M2/M3)
+
+- Trial decryption with viewing keys.
+- Building UAs from receivers (requires Orchard / Sapling key material).
+- Validating that a receiver's bytes form a valid public key on its curve.
+- Memo decryption / payment matching against incoming transactions.
 
 ## Tech stack
 
