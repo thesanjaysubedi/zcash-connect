@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Storefront from './components/Storefront';
 import Checkout from './components/Checkout';
+import DevTools from './components/DevTools';
 
 type View =
   | { kind: 'store' }
@@ -27,6 +28,8 @@ export default function App() {
             />
           )}
         </div>
+        {/* DevTools only on the storefront view, when toggled open */}
+        {view.kind === 'store' && devToolsOpen && <DevTools />}
       </main>
       <Footer
         onToggleDevTools={() => setDevToolsOpen((o) => !o)}
