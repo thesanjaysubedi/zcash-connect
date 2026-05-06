@@ -133,6 +133,7 @@
     if (!invoiceId) return;
     try {
       const r = await fetch('/invoices/' + invoiceId);
+      if (!r.ok) { clearInterval(poll); return; }
       const d = await r.json();
       setStatus(d.status);
       if (d.status === 'CONFIRMED' || d.status === 'EXPIRED')
