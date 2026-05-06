@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Storefront from './components/Storefront';
+import Checkout from './components/Checkout';
 
 type View =
   | { kind: 'store' }
@@ -20,17 +21,10 @@ export default function App() {
             <Storefront onSelect={(id) => setView({ kind: 'checkout', productId: id })} />
           )}
           {view.kind === 'checkout' && (
-            <div className="bg-white rounded-2xl shadow-sm p-8">
-              <button
-                onClick={() => setView({ kind: 'store' })}
-                className="text-zbucks-mute hover:text-zbucks-green text-sm mb-4"
-              >
-                ← Back to Zbucks
-              </button>
-              <h2 className="text-xl font-bold text-zbucks-brown">Checkout placeholder</h2>
-              <p className="text-zbucks-mute text-sm mt-2">Product: {view.productId}</p>
-              <p className="text-zbucks-mute text-sm mt-1">(Task 6 will replace this with the real checkout.)</p>
-            </div>
+            <Checkout
+              productId={view.productId}
+              onBack={() => setView({ kind: 'store' })}
+            />
           )}
         </div>
       </main>
