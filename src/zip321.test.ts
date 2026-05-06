@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPaymentUri, buildMemo, parsePaymentUri } from './zip321';
+import { buildPaymentUri, buildMemo, parsePaymentUri, buildMultiPaymentUri, parseMultiPaymentUri } from './zip321';
 
 describe('buildPaymentUri', () => {
   const ADDR = 'u1exampleorchardunifiedaddress';
@@ -146,5 +146,71 @@ describe('parsePaymentUri', () => {
     const a = parsePaymentUri(`zcash:?address=${ADDR}&amount=1`);
     const b = parsePaymentUri(`zcash:${ADDR}?amount=1`);
     expect(a).toEqual(b);
+  });
+});
+
+describe('buildMultiPaymentUri', () => {
+  const A = 'u1aaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const B = 'u1bbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+  it('emits zcash:?address=...&address.1=... for two recipients', () => {
+    const uri = buildMultiPaymentUri([
+      { address: A, amount: '1' },
+      { address: B, amount: '2' },
+    ]);
+    expect(uri.startsWith('zcash:?')).toBe(true);
+    expect(uri).toContain(`address=${A}`);
+    expect(uri).toContain(`address.1=${B}`);
+    expect(uri).toContain('amount=1');
+    expect(uri).toContain('amount.1=2');
+  });
+
+  it('throws on empty payments array', () => {
+    expect(() => buildMultiPaymentUri([])).toThrow(/empty|at least/i);
+  });
+
+  it('throws on a single payment (caller should use buildPaymentUri)', () => {
+    expect(() => buildMultiPaymentUri([{ address: A, amount: '1' }]))
+      .toThrow(/multi|single/i);
+  });
+});
+
+describe('parseMultiPaymentUri', () => {
+  const A = 'u1aaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const B = 'u1bbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const C = 'u1cccccccccccccccccccccccccccc';
+
+  it('parses two recipients in order (empty index then .1)', () => {
+    const uri      = `zcash:?address=${A}&amount=1&address.1=${B}&amount.1=2`;
+    const payments = parseMultiPaymentUri(uri);
+    expect(payments.length).toBe(2);
+    expect(payments[0].address).toBe(A);
+    expect(payments[0].amount).toBe('1');
+    expect(payments[1].address).toBe(B);
+    expect(payments[1].amount).toBe('2');
+  });
+
+  it('round-trips: build → parse → equal', () => {
+    const original = [
+      { address: A, amount: '0.1', label: 'first'  },
+      { address: B, amount: '0.2', memo:  'second' },
+      { address: C, amount: '0.3' },
+    ];
+    const uri      = buildMultiPaymentUri(original);
+    const parsed   = parseMultiPaymentUri(uri);
+    expect(parsed.length).toBe(3);
+    expect(parsed[0].address).toBe(A);
+    expect(parsed[1].memo).toBe('second');
+    expect(parsed[2].amount).toBe('0.3');
+  });
+
+  it('rejects address.0 (leading zero index forbidden by ZIP-321)', () => {
+    const uri = `zcash:?address=${A}&amount=1&address.0=${B}&amount.0=2`;
+    expect(() => parseMultiPaymentUri(uri)).toThrow(/leading zero|index|address\.0/i);
+  });
+
+  it('rejects orphan amount.N without matching address.N', () => {
+    const uri = `zcash:?address=${A}&amount=1&amount.1=2`;
+    expect(() => parseMultiPaymentUri(uri)).toThrow(/orphan|missing|address\.1/i);
   });
 });
