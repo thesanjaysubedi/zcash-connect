@@ -4,7 +4,8 @@ import 'dotenv/config';
 import express from 'express';
 import QRCode  from 'qrcode';
 import path    from 'path';
-import { buildPaymentUri, buildMemo } from './zip321';
+import { buildPaymentUri, buildMemo, parsePaymentUri, parseMultiPaymentUri } from './zip321';
+import { parseUnifiedAddress } from './zip316';
 import * as Invoices from './invoices';
 import {
   createClient,
@@ -26,6 +27,20 @@ if (!MERCHANT_ADDRESS) {
   console.error('ERROR: MERCHANT_ADDRESS environment variable is not set.');
   console.error('Set it to your Zcash Orchard unified address (starts with u1).');
   process.exit(1);
+}
+
+let merchantAddressDetails;
+try {
+  merchantAddressDetails = parseUnifiedAddress(MERCHANT_ADDRESS);
+} catch (e) {
+  console.error(`ERROR: MERCHANT_ADDRESS is not a valid Zcash unified address: ${(e as Error).message}`);
+  process.exit(1);
+}
+
+if (!merchantAddressDetails.isOrchardCapable) {
+  console.warn(`WARNING: MERCHANT_ADDRESS has no Orchard receiver. Receivers found: ${
+    merchantAddressDetails.receivers.map(r => r.type).join(', ')
+  }`);
 }
 
 // ── gRPC client ─────────────────────────────────────────────────────
@@ -126,6 +141,36 @@ app.get('/health', async (_req, res) => {
     });
   } catch (err) {
     return res.status(503).json({ status: 'error', error: String(err) });
+  }
+});
+
+app.post('/uris/parse', (req, res) => {
+  const { uri } = req.body as { uri?: string };
+  if (!uri || typeof uri !== 'string') {
+    return res.status(400).json({ error: 'uri (string) is required in request body' });
+  }
+  try {
+    // Multi-recipient URIs lack a path-component address (zcash:?...).
+    // Detect by checking whether anything precedes the '?' after 'zcash:'.
+    const after  = uri.startsWith('zcash:') ? uri.slice('zcash:'.length) : '';
+    const isMulti = after.startsWith('?');
+    if (isMulti) {
+      const payments = parseMultiPaymentUri(uri);
+      return res.json({ kind: 'multi', payments });
+    }
+    const payment = parsePaymentUri(uri);
+    return res.json({ kind: 'single', payment });
+  } catch (e) {
+    return res.status(400).json({ error: (e as Error).message });
+  }
+});
+
+app.get('/address/:addr/details', (req, res) => {
+  try {
+    const ua = parseUnifiedAddress(req.params.addr);
+    return res.json(ua);
+  } catch (e) {
+    return res.status(400).json({ error: (e as Error).message });
   }
 });
 
