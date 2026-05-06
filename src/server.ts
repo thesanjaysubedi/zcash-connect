@@ -42,12 +42,19 @@ app.post('/invoices', async (req, res) => {
       webhookUrl?: string;
     };
 
-    if (!amountZec || parseFloat(amountZec) <= 0) {
+    const parsedAmount = parseFloat(amountZec);
+    if (!amountZec || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({ error: 'amountZec must be a positive number' });
     }
 
     const currentBlock = await getLatestBlockHeight(client);
 
+    // MVP scope: the memo carries a placeholder invoice id, not the real one.
+    // Threading the real id requires moving Invoices.create earlier in the
+    // flow (or pre-generating the UUID); deferred to M2 along with memo-based
+    // payment matching, which is the only thing that would actually consume
+    // this field. The QR/URI returned to the client is internally consistent
+    // because the same memoText is also stored on the invoice record.
     const memoText = buildMemo({
       invoiceId: 'pending',
       orderId:   orderId ?? 'none',
