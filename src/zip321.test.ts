@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPaymentUri, buildMemo } from './zip321';
+import { buildPaymentUri, buildMemo, parsePaymentUri } from './zip321';
 
 describe('buildPaymentUri', () => {
   const ADDR = 'u1exampleorchardunifiedaddress';
@@ -101,5 +101,50 @@ describe('buildMemo', () => {
     // invoiceId of length 366 produces a 514-byte memo (the next valid base64
     // length after 512), confirming the cap rejects values just over the limit.
     expect(() => buildMemo({ invoiceId: 'x'.repeat(366) })).toThrow(/Memo too long/);
+  });
+});
+
+describe('parsePaymentUri', () => {
+  const ADDR = 'u1exampleorchardunifiedaddress';
+
+  it('parses a URI with all fields and round-trips with buildPaymentUri', () => {
+    const original = {
+      address: ADDR,
+      amount:  '0.5',
+      memo:    'hello world',
+      label:   'Order 1',
+      message: 'thanks',
+    };
+    const uri    = buildPaymentUri(original);
+    const parsed = parsePaymentUri(uri);
+    expect(parsed.address).toBe(original.address);
+    expect(parsed.amount).toBe(original.amount);
+    expect(parsed.memo).toBe(original.memo);
+    expect(parsed.label).toBe(original.label);
+    expect(parsed.message).toBe(original.message);
+  });
+
+  it('parses a URI with only required fields', () => {
+    const uri    = buildPaymentUri({ address: ADDR, amount: '0.01' });
+    const parsed = parsePaymentUri(uri);
+    expect(parsed.address).toBe(ADDR);
+    expect(parsed.amount).toBe('0.01');
+    expect(parsed.memo).toBeUndefined();
+    expect(parsed.label).toBeUndefined();
+    expect(parsed.message).toBeUndefined();
+  });
+
+  it('rejects non-zcash schemes', () => {
+    expect(() => parsePaymentUri('http://example.com')).toThrow(/scheme|zcash:/i);
+  });
+
+  it('rejects zcash:// (authority component not allowed by ZIP-321)', () => {
+    expect(() => parsePaymentUri(`zcash://${ADDR}?amount=1`)).toThrow();
+  });
+
+  it('handles zcash:?address=... equivalent to zcash:<addr>?', () => {
+    const a = parsePaymentUri(`zcash:?address=${ADDR}&amount=1`);
+    const b = parsePaymentUri(`zcash:${ADDR}?amount=1`);
+    expect(a).toEqual(b);
   });
 });
