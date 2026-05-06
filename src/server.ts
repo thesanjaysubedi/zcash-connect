@@ -4,7 +4,7 @@ import 'dotenv/config';
 import express from 'express';
 import QRCode  from 'qrcode';
 import path    from 'path';
-import { buildPaymentUri, buildMemo, parsePaymentUri, parseMultiPaymentUri } from './zip321';
+import { buildPaymentUri, buildMemo, buildMultiPaymentUri, parsePaymentUri, parseMultiPaymentUri } from './zip321';
 import { parseUnifiedAddress } from './zip316';
 import * as Invoices from './invoices';
 import {
@@ -50,37 +50,104 @@ const client = createClient(LIGHTWALLETD_HOST);
 
 app.post('/invoices', async (req, res) => {
   try {
-    const { amountZec, orderId, label, webhookUrl } = req.body as {
-      amountZec:   string;
-      orderId?:    string;
-      label?:      string;
-      webhookUrl?: string;
+    const body = req.body as {
+      amountZec?:   string;
+      orderId?:     string;
+      label?:       string;
+      webhookUrl?:  string;
+      payments?:    Array<{ amountZec: string; orderId?: string; label?: string }>;
     };
 
-    const parsedAmount = parseFloat(amountZec);
-    if (!amountZec || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({ error: 'amountZec must be a positive number' });
+    const isMulti = Array.isArray(body.payments) && body.payments.length > 1;
+
+    if (!isMulti) {
+      // Single-recipient flow — existing behavior preserved.
+      const amountZec = body.payments?.[0]?.amountZec ?? body.amountZec ?? '';
+      const orderId   = body.payments?.[0]?.orderId   ?? body.orderId;
+      const label     = body.payments?.[0]?.label     ?? body.label;
+
+      const parsedAmount = parseFloat(amountZec);
+      if (!amountZec || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ error: 'amountZec must be a positive number' });
+      }
+
+      const currentBlock = await getLatestBlockHeight(client);
+
+      // MVP scope: the memo carries a placeholder invoice id, not the real one.
+      // Threading the real id requires moving Invoices.create earlier in the
+      // flow (or pre-generating the UUID); deferred to M2 along with memo-based
+      // payment matching, which is the only thing that would actually consume
+      // this field. The QR/URI returned to the client is internally consistent
+      // because the same memoText is also stored on the invoice record.
+      const memoText = buildMemo({
+        invoiceId: 'pending',
+        orderId:   orderId ?? 'none',
+      });
+
+      const paymentUri = buildPaymentUri({
+        address: MERCHANT_ADDRESS,
+        amount:  amountZec,
+        memo:    memoText,
+        label:   label ?? 'ZcashConnect Payment',
+      });
+
+      const qrCode = await QRCode.toDataURL(paymentUri, {
+        errorCorrectionLevel: 'M',
+        width:  256,
+        margin: 2,
+      });
+
+      const invoice = Invoices.create({
+        address:    MERCHANT_ADDRESS,
+        amountZec,
+        memoText,
+        paymentUri,
+        currentBlock,
+        webhookUrl: body.webhookUrl,
+      });
+
+      return res.status(201).json({
+        invoiceId:      invoice.id,
+        address:        invoice.address,
+        amountZec:      invoice.amountZec,
+        paymentUri:     invoice.paymentUri,
+        qrCode,
+        status:         invoice.status,
+        createdAt:      invoice.createdAt,
+        expiresAtBlock: invoice.expiresAtBlock,
+        currentBlock,
+        network:        NETWORK,
+        kind:           'single',
+      });
+    }
+
+    // ── Multi-recipient flow ───────────────────────────────────────
+    const payments = body.payments!;
+    for (const p of payments) {
+      const v = parseFloat(p.amountZec);
+      if (!p.amountZec || Number.isNaN(v) || v <= 0) {
+        return res.status(400).json({ error: `each payment.amountZec must be a positive number` });
+      }
     }
 
     const currentBlock = await getLatestBlockHeight(client);
+    const totalZec = payments.reduce((s, p) => s + parseFloat(p.amountZec), 0).toString();
 
-    // MVP scope: the memo carries a placeholder invoice id, not the real one.
-    // Threading the real id requires moving Invoices.create earlier in the
-    // flow (or pre-generating the UUID); deferred to M2 along with memo-based
-    // payment matching, which is the only thing that would actually consume
-    // this field. The QR/URI returned to the client is internally consistent
-    // because the same memoText is also stored on the invoice record.
     const memoText = buildMemo({
       invoiceId: 'pending',
-      orderId:   orderId ?? 'none',
+      orderId:   payments.map(p => p.orderId ?? 'none').join(','),
     });
 
-    const paymentUri = buildPaymentUri({
-      address: MERCHANT_ADDRESS,
-      amount:  amountZec,
-      memo:    memoText,
-      label:   label ?? 'ZcashConnect Payment',
-    });
+    const paymentUri = buildMultiPaymentUri(
+      payments.map((p, i) => ({
+        address: MERCHANT_ADDRESS,
+        amount:  p.amountZec,
+        // Only attach memo to the first recipient (memo per-recipient is allowed
+        // by ZIP-321; we keep MVP simple and put it on index 0 only)
+        memo:    i === 0 ? memoText : undefined,
+        label:   p.label ?? `ZcashConnect Payment ${i + 1}`,
+      })),
+    );
 
     const qrCode = await QRCode.toDataURL(paymentUri, {
       errorCorrectionLevel: 'M',
@@ -89,18 +156,18 @@ app.post('/invoices', async (req, res) => {
     });
 
     const invoice = Invoices.create({
-      address:      MERCHANT_ADDRESS,
-      amountZec,
+      address:    MERCHANT_ADDRESS,
+      amountZec:  totalZec,
       memoText,
       paymentUri,
       currentBlock,
-      webhookUrl,
+      webhookUrl: body.webhookUrl,
     });
 
     return res.status(201).json({
       invoiceId:      invoice.id,
       address:        invoice.address,
-      amountZec:      invoice.amountZec,
+      amountZec:      totalZec,
       paymentUri:     invoice.paymentUri,
       qrCode,
       status:         invoice.status,
@@ -108,6 +175,8 @@ app.post('/invoices', async (req, res) => {
       expiresAtBlock: invoice.expiresAtBlock,
       currentBlock,
       network:        NETWORK,
+      kind:           'multi',
+      payments:       payments.map(p => ({ amountZec: p.amountZec, label: p.label })),
     });
   } catch (err) {
     console.error('[POST /invoices]', err);

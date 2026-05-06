@@ -78,6 +78,9 @@
                  border: none; border-radius: 8px; font-size: 13px;
                  font-weight: 700; cursor: pointer; }
     .small-btn:hover { background: #0a5a47; }
+    .recipient-row { border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; margin-bottom: 10px; }
+    .recipient-row:last-child { border-bottom: none; }
+    .recipient-row .remove-btn { font-size: 11px; color: #c00; cursor: pointer; background: none; border: none; padding: 0; }
   </style>
 </head>
 <body>
@@ -87,15 +90,20 @@
     <div class="tagline">Shielded Orchard payment demo</div>
 
     <div id="form">
-      <div class="field">
-        <label>Amount (ZEC)</label>
-        <input type="number" id="amount" value="0.01"
-               step="0.001" min="0.001" placeholder="0.01">
+      <div id="recipientsList">
+        <div class="recipient-row" data-idx="0">
+          <div class="field">
+            <label>Amount (ZEC)</label>
+            <input type="number" class="amount-input" value="0.01"
+                   step="0.001" min="0.001" placeholder="0.01">
+          </div>
+          <div class="field">
+            <label>Order reference (optional)</label>
+            <input type="text" class="order-input" placeholder="ORDER-001">
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label>Order reference (optional)</label>
-        <input type="text" id="orderId" placeholder="ORDER-001">
-      </div>
+      <button class="small-btn" type="button" onclick="addRecipient()" style="margin-bottom:8px; background:#888;">+ Add recipient</button>
       <button class="btn" id="genBtn" onclick="generate()">
         Generate Payment Request
       </button>
@@ -135,22 +143,51 @@
 <script>
   let invoiceId = null, poll = null;
 
+  function addRecipient() {
+    const list = document.getElementById('recipientsList');
+    const idx = list.children.length;
+    const div = document.createElement('div');
+    div.className = 'recipient-row';
+    div.setAttribute('data-idx', idx);
+    div.innerHTML =
+      '<div class="field">' +
+      '  <label>Amount (ZEC) #' + (idx + 1) + ' <button type="button" class="remove-btn" onclick="this.closest(\'.recipient-row\').remove()">remove</button></label>' +
+      '  <input type="number" class="amount-input" value="0.01" step="0.001" min="0.001">' +
+      '</div>' +
+      '<div class="field">' +
+      '  <label>Order reference (optional)</label>' +
+      '  <input type="text" class="order-input" placeholder="ORDER-' + String(idx + 1).padStart(3, "0") + '">' +
+      '</div>';
+    list.appendChild(div);
+  }
+
   async function generate() {
-    const amount  = document.getElementById('amount').value;
-    const orderId = document.getElementById('orderId').value;
-    const btn     = document.getElementById('genBtn');
-    if (!amount || parseFloat(amount) <= 0) { alert('Enter a valid amount'); return; }
+    const rows = document.querySelectorAll('#recipientsList .recipient-row');
+    const payments = [];
+    rows.forEach(row => {
+      const amount  = row.querySelector('.amount-input').value;
+      const orderId = row.querySelector('.order-input').value;
+      if (amount && parseFloat(amount) > 0) {
+        payments.push({ amountZec: amount, orderId: orderId || undefined });
+      }
+    });
+    if (payments.length === 0) { alert('Enter at least one valid amount'); return; }
+
+    const btn = document.getElementById('genBtn');
     btn.disabled = true; btn.textContent = 'Generating...';
     try {
+      const body = payments.length === 1
+        ? { amountZec: payments[0].amountZec, orderId: payments[0].orderId }
+        : { payments };
       const r = await fetch('/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountZec: amount, orderId })
+        body: JSON.stringify(body),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       invoiceId = d.invoiceId;
-      document.getElementById('dispAmount').textContent = d.amountZec + ' ZEC';
+      document.getElementById('dispAmount').textContent = d.amountZec + ' ZEC' + (d.kind === 'multi' ? ' (' + d.payments.length + ' payments)' : '');
       document.getElementById('dispNet').textContent    = (d.network || 'mainnet').toUpperCase();
       document.getElementById('qrImg').src              = d.qrCode;
       document.getElementById('dispAddr').textContent   = d.address;
@@ -159,7 +196,7 @@
       document.getElementById('invoice').style.display  = 'block';
       setStatus('CREATED');
       poll = setInterval(checkStatus, 10000);
-    } catch(e) {
+    } catch (e) {
       alert('Error: ' + e.message);
       btn.disabled = false; btn.textContent = 'Generate Payment Request';
     }
@@ -189,8 +226,17 @@
     document.getElementById('invoice').style.display = 'none';
     document.getElementById('genBtn').disabled       = false;
     document.getElementById('genBtn').textContent    = 'Generate Payment Request';
-    document.getElementById('amount').value          = '0.01';
-    document.getElementById('orderId').value         = '';
+    // Reset to a single recipient row
+    const list = document.getElementById('recipientsList');
+    list.innerHTML =
+      '<div class="recipient-row" data-idx="0">' +
+      '  <div class="field"><label>Amount (ZEC)</label>' +
+      '    <input type="number" class="amount-input" value="0.01" step="0.001" min="0.001" placeholder="0.01">' +
+      '  </div>' +
+      '  <div class="field"><label>Order reference (optional)</label>' +
+      '    <input type="text" class="order-input" placeholder="ORDER-001">' +
+      '  </div>' +
+      '</div>';
   }
 
   // Auto-load address details on page load
