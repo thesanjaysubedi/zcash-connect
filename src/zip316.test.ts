@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeCompactSize, decodeCompactSize } from './zip316';
+import { encodeCompactSize, decodeCompactSize, f4Jumble, f4Unjumble } from './zip316';
 
 describe('compactSize codec', () => {
   it('encodes small values (< 253) as a single byte', () => {
@@ -39,5 +39,35 @@ describe('compactSize codec', () => {
     // 0xFD claims 2 more bytes follow, but buffer ends
     expect(() => decodeCompactSize(new Uint8Array([0xFD, 0xFF]), 0))
       .toThrow(/truncated|insufficient/i);
+  });
+});
+
+describe('F4Jumble', () => {
+  it('round-trips: f4Unjumble(f4Jumble(x)) === x for various lengths', () => {
+    for (const len of [48, 64, 100, 248]) {
+      const input = new Uint8Array(len);
+      for (let i = 0; i < len; i++) input[i] = (i * 37 + 13) & 0xFF;
+      const jumbled   = f4Jumble(input);
+      const unjumbled = f4Unjumble(jumbled);
+      expect(jumbled.length).toBe(len);
+      expect(unjumbled.length).toBe(len);
+      expect(Array.from(unjumbled)).toEqual(Array.from(input));
+    }
+  });
+
+  it('produces a different output than its input (mixing actually happens)', () => {
+    const input = new Uint8Array(64).fill(0x42);
+    const jumbled = f4Jumble(input);
+    expect(Array.from(jumbled)).not.toEqual(Array.from(input));
+  });
+
+  it('rejects inputs shorter than 38 bytes', () => {
+    expect(() => f4Jumble(new Uint8Array(37))).toThrow(/length|too short/i);
+  });
+
+  it('preserves length exactly', () => {
+    for (const len of [38, 50, 64, 73, 100]) {
+      expect(f4Jumble(new Uint8Array(len)).length).toBe(len);
+    }
   });
 });
