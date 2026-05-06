@@ -56,6 +56,28 @@
     .back:hover { background: #333; }
     .footer { text-align: center; font-size: 11px; color: #bbb;
               margin-top: 18px; }
+    .panel { background: #fff; border-radius: 18px; padding: 22px;
+             box-shadow: 0 4px 32px rgba(0,0,0,0.08); margin-top: 16px; }
+    .panel h3 { font-size: 14px; font-weight: 800; color: #0D6E56;
+                text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .receiver-tag { display: inline-block; font-size: 11px; font-weight: 700;
+                    background: #e6f5f0; color: #0D6E56; padding: 3px 10px;
+                    border-radius: 12px; margin-right: 6px; margin-top: 4px; }
+    .receiver-tag.orchard  { background:#d4edda; color:#155724; }
+    .receiver-tag.sapling  { background:#d1ecf1; color:#0c5460; }
+    .receiver-tag.p2pkh, .receiver-tag.p2sh { background:#fff3cd; color:#856404; }
+    .receiver-tag.unknown  { background:#f8d7da; color:#721c24; }
+    .uri-textarea { width: 100%; min-height: 60px; padding: 10px;
+                    border: 1.5px solid #e0e0e0; border-radius: 10px;
+                    font-family: monospace; font-size: 12px; resize: vertical; }
+    .parse-output { margin-top: 12px; background: #f7f7f7; border-radius: 8px;
+                    padding: 10px; font-family: monospace; font-size: 11px;
+                    white-space: pre-wrap; word-break: break-all; max-height: 300px;
+                    overflow: auto; }
+    .small-btn { padding: 8px 16px; background: #0D6E56; color: #fff;
+                 border: none; border-radius: 8px; font-size: 13px;
+                 font-weight: 700; cursor: pointer; }
+    .small-btn:hover { background: #0a5a47; }
   </style>
 </head>
 <body>
@@ -90,6 +112,20 @@
       <button class="back" onclick="reset()">New Invoice</button>
     </div>
   </div>
+  <div class="panel" id="addrPanel">
+    <h3>Merchant Address Details</h3>
+    <div id="addrSummary">Loading...</div>
+    <div id="addrReceivers"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Parse a ZIP-321 URI</h3>
+    <textarea class="uri-textarea" id="parseInput"
+              placeholder="Paste a zcash: URI here (single or multi-recipient)"></textarea>
+    <button class="small-btn" onclick="parseUri()" style="margin-top:8px;">Parse</button>
+    <div class="parse-output" id="parseOutput" style="display:none;"></div>
+  </div>
+
   <div class="footer">
     ZcashConnect MVP &mdash; grant proposal prototype<br>
     Powered by Zcash Orchard &bull; ZIP-321 &bull; lightwalletd
@@ -155,6 +191,62 @@
     document.getElementById('genBtn').textContent    = 'Generate Payment Request';
     document.getElementById('amount').value          = '0.01';
     document.getElementById('orderId').value         = '';
+  }
+
+  // Auto-load address details on page load
+  async function loadAddressDetails() {
+    try {
+      // The merchant address isn't directly exposed by /health (it truncates).
+      // We read it from a one-shot probe invoice instead — the API returns
+      // d.address with the full configured MERCHANT_ADDRESS.
+      const r = await fetch('/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amountZec: '0.001', orderId: '_addr_probe' }),
+      });
+      const inv = await r.json();
+      const addr = inv.address;
+      const d = await fetch('/address/' + encodeURIComponent(addr) + '/details');
+      if (!d.ok) throw new Error((await d.json()).error);
+      const ua = await d.json();
+      document.getElementById('addrSummary').innerHTML =
+        '<strong>Network:</strong> ' + ua.network +
+        ' &middot; <strong>Receivers:</strong> ' + ua.receivers.length +
+        ' &middot; <strong>Orchard capable:</strong> ' +
+        (ua.isOrchardCapable ? 'yes' : 'no');
+      document.getElementById('addrReceivers').innerHTML =
+        ua.receivers.map(r =>
+          '<span class="receiver-tag ' + r.type + '">' + r.type + ' (typeId=' + r.typeId + ', ' + r.length + ' bytes)</span>'
+        ).join('');
+    } catch (e) {
+      document.getElementById('addrSummary').textContent = 'Failed to load address details: ' + e.message;
+    }
+  }
+
+  async function parseUri() {
+    const uri = document.getElementById('parseInput').value.trim();
+    const out = document.getElementById('parseOutput');
+    if (!uri) { alert('Paste a zcash: URI first'); return; }
+    out.style.display = 'block';
+    out.textContent = 'Parsing...';
+    try {
+      const r = await fetch('/uris/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri }),
+      });
+      const d = await r.json();
+      out.textContent = JSON.stringify(d, null, 2);
+    } catch (e) {
+      out.textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // Auto-load address details on page open
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadAddressDetails);
+  } else {
+    loadAddressDetails();
   }
 </script>
 </body>
