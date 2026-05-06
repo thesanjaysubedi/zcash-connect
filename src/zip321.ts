@@ -39,5 +39,5 @@ export function buildPaymentUri(req: PaymentRequest): string {
   if (req.memo)    params.set('memo',    toBase64Url(req.memo));
   if (req.label)   params.set('label',   req.label);
   if (req.message) params.set('message', req.message);
-  return `zcash:${req.address}?${params.toString()}`;
+  return `zcash:${req.address}?${params.toString().replace(/\+/g, '%20')}`;
 }

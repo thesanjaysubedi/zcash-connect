@@ -33,6 +33,18 @@ describe('buildPaymentUri', () => {
     expect(params.get('message')).toBe('thanks');
   });
 
+  it('percent-encodes spaces as %20, not +, in label and message', () => {
+    const uri = buildPaymentUri({
+      address: ADDR,
+      amount:  '1',
+      label:   'Order 1',
+      message: 'thank you',
+    });
+    expect(uri).toContain('label=Order%201');
+    expect(uri).toContain('message=thank%20you');
+    expect(uri).not.toMatch(/[?&](label|message)=[^&]*\+/);
+  });
+
   it('preserves UTF-8 multibyte characters in memo', () => {
     const uri = buildPaymentUri({ address: ADDR, amount: '1', memo: '日本語' });
     const memoParam = new URLSearchParams(uri.split('?')[1]).get('memo')!;
@@ -76,11 +88,18 @@ describe('buildMemo', () => {
     expect(() => buildMemo(huge)).toThrow(/Memo too long/);
   });
 
-  it('accepts payloads at the 512-byte boundary', () => {
-    // build payload size that lands the encoded result at <= 512 bytes
-    // 'ZC1:' is 4 bytes; remaining 508 base64url chars decode to 381 bytes
-    // JSON overhead for {"invoiceId":"..."} is 16 bytes -> id can be ~365 chars
-    const id = 'x'.repeat(360);
-    expect(() => buildMemo({ invoiceId: id })).not.toThrow();
+  it('accepts a payload at exactly 512 bytes', () => {
+    // For invoiceId of length 365: JSON is {"invoiceId":"x...x"} = 381 bytes,
+    // base64url-encoded = 508 chars (no padding because 381 % 3 == 0),
+    // total memo length = 4 ('ZC1:') + 508 = 512 bytes exactly.
+    const id = 'x'.repeat(365);
+    const memo = buildMemo({ invoiceId: id });
+    expect(Buffer.byteLength(memo, 'utf8')).toBe(512);
+  });
+
+  it('throws when payload is just one increment over 512 bytes', () => {
+    // invoiceId of length 366 produces a 514-byte memo (the next valid base64
+    // length after 512), confirming the cap rejects values just over the limit.
+    expect(() => buildMemo({ invoiceId: 'x'.repeat(366) })).toThrow(/Memo too long/);
   });
 });
