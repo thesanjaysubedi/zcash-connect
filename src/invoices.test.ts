@@ -81,4 +81,12 @@ describe('expireStale', () => {
     expect(expired).toEqual([]);
     expect(Invoices.get(inv.id)?.status).toBe('CREATED');
   });
+
+  it('also expires DETECTING invoices past deadline', () => {
+    const inv = Invoices.create(baseParams);
+    Invoices.updateStatus(inv.id, 'DETECTING');
+    const expired = Invoices.expireStale(2000);
+    expect(expired).toContain(inv.id);
+    expect(Invoices.get(inv.id)?.status).toBe('EXPIRED');
+  });
 });

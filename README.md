@@ -42,10 +42,13 @@ npm install
 mkdir -p proto
 ```
 
-The lightwalletd proto files are stored as symlinks in the `zcash/lightwalletd`
-GitHub repo, so a plain `curl` against the `raw.githubusercontent.com` URL
-returns a 47-byte symlink target string instead of the actual proto. Use the
-GitHub Contents API to fetch the resolved file content:
+The lightwalletd proto files are committed in `proto/` for convenience — a
+fresh clone has them already and `npm run dev` will work without any download
+step. The script below is provided for users who want to refresh them from
+upstream. Note: the proto files are stored as symlinks in the
+`zcash/lightwalletd` GitHub repo, so a plain `curl` against the
+`raw.githubusercontent.com` URL returns a 47-byte symlink target string
+instead of the actual proto. Use the GitHub Contents API instead:
 
 ```bash
 fetch_proto() {
@@ -95,6 +98,31 @@ zcash:u1abc...xyz?amount=0.01&memo=WkMx...&label=ZcashConnect%20Payment
 ```
 
 This URI is valid ZIP-321 and scannable by ZODL, Zashi, and Ywallet.
+
+## Known limitations
+
+In addition to the M2/M3 scope deferrals above, this MVP defers a number of
+production concerns that a real merchant deployment would need to address:
+
+- **In-memory state** — invoice records live in a `Map` for the lifetime of
+  the process; a restart loses everything. Production should use Postgres
+  or similar.
+- **No authentication** — the `POST /invoices` endpoint is unauthenticated.
+  Any HTTP client can create invoices against the merchant's address.
+  Production should require a per-merchant API key or signed request.
+- **No rate limiting** — a misbehaving client could create unbounded invoices
+  and exhaust memory.
+- **Internal error messages leak via `String(err)`** — the 500 and 503 error
+  responses surface raw error strings (which for gRPC failures can include
+  host names and connection details). Production should sanitise to a
+  generic error code and log the detail server-side.
+- **No graceful shutdown** — there is no `SIGTERM` handler, so a redeploy
+  hard-kills in-flight requests. Production should drain the request queue
+  before exiting.
+
+These are intentional MVP simplifications, not oversights — they keep the
+demo readable and isolate the three core capabilities the grant proposal
+needs to demonstrate.
 
 ## Tests
 
