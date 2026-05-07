@@ -9,7 +9,7 @@ export default function ProductCard({ product, onSelect }: Props) {
   return (
     <button
       onClick={() => onSelect(product.id)}
-      className="text-left bg-white rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 p-6 border border-zbucks-brown/5"
+      className="group text-left bg-white rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 p-6 border border-zbucks-brown/5"
     >
       <div className="text-5xl mb-3">{product.emoji}</div>
       <h3 className="text-lg font-bold text-zbucks-brown">{product.name}</h3>

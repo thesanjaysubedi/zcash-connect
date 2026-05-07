@@ -137,6 +137,12 @@ production concerns that a real merchant deployment would need to address:
 - **No graceful shutdown** — there is no `SIGTERM` handler, so a redeploy
   hard-kills in-flight requests. Production should drain the request queue
   before exiting.
+- **Multi-recipient demo uses a single address** — the "Coffee + Tip"
+  storefront product demonstrates ZIP-321 multi-recipient *URI encoding*
+  (the `zcash:?address=...&address.1=...` form), but every sub-payment
+  is mapped to the configured `MERCHANT_ADDRESS`. A real split-payment
+  flow (e.g., merchant + barista) requires configuring multiple recipient
+  addresses; deferred along with the broader merchant/payee model.
 
 These are intentional MVP simplifications, not oversights — they keep the
 demo readable and isolate the three core capabilities the grant proposal
