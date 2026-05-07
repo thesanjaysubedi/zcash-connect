@@ -28,12 +28,25 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/invoices': 'http://localhost:3000',
-      '/health':   'http://localhost:3000',
-      '/uris':     'http://localhost:3000',
-      '/address':  'http://localhost:3000',
-      '/merchant': 'http://localhost:3000',
-    },
+    proxy: (() => {
+      const target = 'http://localhost:3000';
+      // Suppress ECONNREFUSED noise during the dev-mode startup race
+      // where Vite is ready (~300ms) but Express is still gRPC-handshaking
+      // with lightwalletd (~6s). The frontend's polling already handles
+      // the failure gracefully — we just don't want it cluttering the log.
+      const configure = (proxy: { on: (e: string, cb: (err: NodeJS.ErrnoException) => void) => void }) => {
+        proxy.on('error', (err) => {
+          if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET') return;
+          console.error('[vite proxy]', err);
+        });
+      };
+      return {
+        '/invoices': { target, configure },
+        '/health':   { target, configure },
+        '/uris':     { target, configure },
+        '/address':  { target, configure },
+        '/merchant': { target, configure },
+      };
+    })(),
   },
 });
