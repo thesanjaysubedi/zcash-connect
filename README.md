@@ -13,7 +13,8 @@ This repository is the MVP prototype that demonstrates:
   implemented from scratch and tested against ZIP-316
 - gRPC connection to the Zcash network via lightwalletd
 - Invoice lifecycle management: CREATED → DETECTING → CONFIRMED → EXPIRED
-- A clean merchant demo page that works in any browser
+- **Polished merchant storefront** built with React + Vite + Tailwind
+  ("Zbucks Coffee" demo) showing how a merchant uses the SDK
 
 ## What this is NOT
 
@@ -38,9 +39,10 @@ Deploy to Railway and replace this line with the deployed URL.
 ## Quick start
 
 ```bash
-git clone https://github.com/YOUR_HANDLE/zcashconnect-mvp
-cd zcashconnect-mvp
+git clone https://github.com/thesanjaysubedi/zcash-connect
+cd zcash-connect
 npm install
+
 mkdir -p proto
 ```
 
@@ -61,33 +63,45 @@ fetch_proto() {
     | python3 -c "import sys, json, base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode())" \
     > "proto/$name"
 }
-
 fetch_proto service.proto
 fetch_proto compact_formats.proto
 ```
 
-Verify the files are real proto content (not 47-byte stubs):
-
-```bash
-wc -c proto/*.proto       # should show ~15K and ~6K, not 47
-grep -c 'service CompactTxStreamer' proto/service.proto    # should print 1
-```
-
-Configure the environment and start the server:
+Configure the environment:
 
 ```bash
 cp .env.example .env
 # Edit .env: set MERCHANT_ADDRESS to your Orchard unified address (u1...)
+```
 
+### Development (HMR + auto-reload)
+
+```bash
 npm run dev
 ```
 
-Open http://localhost:3000.
+This starts two processes via `concurrently`:
+- Express API on `http://localhost:3000`
+- Vite dev server on `http://localhost:5173` with hot module reload
+
+Open `http://localhost:5173` in a browser. Vite proxies all API calls
+(`/invoices`, `/health`, `/merchant`, `/uris/parse`, `/address/:addr/details`)
+to Express on port 3000.
+
+### Production (single process, prebuilt assets)
+
+```bash
+npm run build   # tsc compiles backend; vite builds frontend to web/dist/
+npm start       # Express serves the React app + API on port 3000
+```
+
+Open `http://localhost:3000`.
 
 ## API
 
 | Method | Path                       | Description |
 |---|---|---|
+| GET  | /merchant                    | Returns the configured merchant address with decoded receiver details |
 | POST | /invoices                    | Create a payment invoice. Body: `{ amountZec, ... }` (single) or `{ payments: [...] }` (multi-recipient) |
 | GET  | /invoices/:id                | Get invoice status |
 | GET  | /invoices                    | List all invoices |
@@ -178,8 +192,10 @@ This MVP implements the following Zcash specifications from scratch:
 
 ## Tech stack
 
-Node 20 LTS, TypeScript 5 (strict), Express 4, `@grpc/grpc-js`, `qrcode`, Vitest.
-Zcash network: `zec.rocks:443` (public lightwalletd, no auth required).
+**Backend:** Node 20 LTS, TypeScript 5 (strict), Express 4, `@grpc/grpc-js`, `qrcode`, Vitest.
+**Frontend:** React 18, Vite 5, TypeScript 5, Tailwind CSS 3.
+**Zcash protocol primitives:** `bech32` (envelope only), `blakejs` (BLAKE2b for F4Jumble); ZIP-316 + ZIP-321 implemented locally.
+**Zcash network:** `zec.rocks:443` (public lightwalletd, no auth required).
 
 ## License
 
