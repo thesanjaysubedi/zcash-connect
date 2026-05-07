@@ -1,6 +1,14 @@
+const path = require('path');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // Resolve content paths relative to THIS config file, not the cwd.
+  // Vite invokes PostCSS/Tailwind with the project root as cwd, so a
+  // bare './index.html' would miss the actual files inside web/.
+  content: [
+    path.resolve(__dirname, 'index.html'),
+    path.resolve(__dirname, 'src/**/*.{ts,tsx}'),
+  ],
   theme: {
     extend: {
       colors: {
