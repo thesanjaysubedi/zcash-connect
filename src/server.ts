@@ -208,6 +208,7 @@ app.get('/health', async (_req, res) => {
       latestBlock:         blockHeight,
       lightwalletdVersion: info.version,
       merchantAddress:     MERCHANT_ADDRESS.slice(0, 20) + '...',
+      observedAt:          new Date().toISOString(),
     });
   } catch (err) {
     return res.status(503).json({ status: 'error', error: String(err) });

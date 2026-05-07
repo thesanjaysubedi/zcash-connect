@@ -38,6 +38,16 @@ export type Invoice = {
 export type ParsedSingle = { kind: 'single'; payment: { address: string; amount: string; memo?: string; label?: string; message?: string } };
 export type ParsedMulti  = { kind: 'multi';  payments: Array<{ address: string; amount: string; memo?: string; label?: string; message?: string }> };
 
+export type Health = {
+  status:              'ok';
+  network:             string;
+  lightwalletdHost:    string;
+  latestBlock:         number;
+  lightwalletdVersion: string;
+  merchantAddress:     string;
+  observedAt:          string; // ISO 8601
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(path, init);
   if (!r.ok) {
@@ -48,6 +58,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  async getHealth(): Promise<Health> {
+    return request<Health>('/health');
+  },
+
   async getMerchant(): Promise<Merchant> {
     return request<Merchant>('/merchant');
   },
