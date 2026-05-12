@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest } from 'next/server';
 import { generateApiKey } from '@/lib/api-keys';
 import { POST } from '@/app/api/v1/invoices/route';
 
@@ -15,7 +16,7 @@ async function jsonReq(headers: HeadersInit, body: unknown) {
   return new Request('http://localhost/api/v1/invoices', {
     method: 'POST', headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
-  });
+  }) as unknown as NextRequest;
 }
 
 beforeAll(async () => {
