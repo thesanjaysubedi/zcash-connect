@@ -8,12 +8,10 @@ export default function Home() {
         Accept shielded ZEC payments on your store with one API call.
       </p>
       <div className="mt-8 flex gap-4">
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Link href={'/signup' as any} className="rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">
+        <Link href="/signup" className="rounded-md bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">
           Sign up
         </Link>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Link href={'/login' as any} className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50">
+        <Link href="/login" className="rounded-md border border-gray-300 px-4 py-2 hover:bg-gray-50">
           Log in
         </Link>
         {/* /demo does not exist yet (Plan B); using <a> to avoid typedRoutes error */}

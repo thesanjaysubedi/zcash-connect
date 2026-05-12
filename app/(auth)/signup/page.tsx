@@ -76,8 +76,7 @@ export default function SignupPage() {
         </button>
       </form>
       <p className="mt-6 text-sm text-gray-600">
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        Already have an account? <Link href={'/login' as any} className="underline">Log in</Link>
+        Already have an account? <Link href="/login" className="underline">Log in</Link>
       </p>
     </main>
   );
