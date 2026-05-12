@@ -25,7 +25,7 @@ export function ApiKeysTable({ keys }: { keys: ApiKeyRow[] }) {
             <td>{k.revoked_at ? <span className="text-red-600">revoked</span> : 'active'}</td>
             <td className="text-right">
               {!k.revoked_at && (
-                <button onClick={() => start(() => revokeApiKey(k.id))}
+                <button onClick={() => start(async () => { await revokeApiKey(k.id); })}
                         disabled={pending}
                         className="text-sm text-red-700 hover:underline disabled:opacity-50">
                   Revoke
