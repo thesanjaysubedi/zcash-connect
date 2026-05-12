@@ -18,10 +18,14 @@ export async function generateApiKey(): Promise<NewApiKey> {
   return { fullKey, prefix, hashedSecret };
 }
 
+// The prefix is always "zk_live_" (8 chars) + 8 random chars = 16 chars.
+// The separator underscore is always at index 16; do NOT use lastIndexOf('_')
+// because the 22-char secret may itself contain underscores.
+const PREFIX_LEN = 16; // "zk_live_" + 8 chars
+
 export function parseApiKey(input: string): { prefix: string; secret: string } | null {
   if (!API_KEY_RE.test(input)) return null;
-  const idx = input.lastIndexOf('_');
-  return { prefix: input.slice(0, idx), secret: input.slice(idx + 1) };
+  return { prefix: input.slice(0, PREFIX_LEN), secret: input.slice(PREFIX_LEN + 1) };
 }
 
 export function verifyApiKey(secret: string, hashedSecret: string): Promise<boolean> {

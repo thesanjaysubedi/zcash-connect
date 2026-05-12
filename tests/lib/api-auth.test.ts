@@ -22,19 +22,20 @@ describe('authenticateApiKey', () => {
   it('returns 401 when header missing', async () => {
     const r = await authenticateApiKey(new Headers());
     expect(r.ok).toBe(false);
-    expect(r.status).toBe(401);
+    if (!r.ok) expect(r.status).toBe(401);
   });
 
   it('returns 401 on malformed bearer', async () => {
     const r = await authenticateApiKey(new Headers({ authorization: 'Bearer garbage' }));
     expect(r.ok).toBe(false);
-    expect(r.status).toBe(401);
+    if (!r.ok) expect(r.status).toBe(401);
   });
 
   it('returns 401 when key not found', async () => {
     mockSingle.mockResolvedValueOnce({ data: null, error: null });
     const r = await authenticateApiKey(new Headers({ authorization: 'Bearer zk_live_abcdEFGH_' + 'x'.repeat(22) }));
-    expect(r.status).toBe(401);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(401);
   });
 
   it('returns 403 when merchant unverified', async () => {
@@ -47,8 +48,11 @@ describe('authenticateApiKey', () => {
       error: null,
     });
     const r = await authenticateApiKey(new Headers({ authorization: `Bearer ${fullKey}` }));
-    expect(r.status).toBe(403);
-    if (!r.ok) expect(r.code).toBe('merchant_unverified');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(403);
+      expect(r.code).toBe('merchant_unverified');
+    }
   });
 
   it('returns 403 when payout address missing', async () => {
@@ -61,8 +65,11 @@ describe('authenticateApiKey', () => {
       error: null,
     });
     const r = await authenticateApiKey(new Headers({ authorization: `Bearer ${fullKey}` }));
-    expect(r.status).toBe(403);
-    if (!r.ok) expect(r.code).toBe('payout_address_missing');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(403);
+      expect(r.code).toBe('payout_address_missing');
+    }
   });
 
   it('returns merchant context on success', async () => {
@@ -95,6 +102,7 @@ describe('authenticateApiKey', () => {
       error: null,
     });
     const r = await authenticateApiKey(new Headers({ authorization: `Bearer ${fullKey}` }));
-    expect(r.status).toBe(401);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(401);
   });
 });
