@@ -37,7 +37,9 @@ async function main() {
   console.log('\n[2] GET /pay/[id]');
   const payRes = await fetch(`${baseUrl}/pay/${invoiceId}`);
   if (payRes.status !== 200) throw new Error(`/pay returned ${payRes.status}`);
-  const payHtml = await payRes.text();
+  const payHtmlRaw = await payRes.text();
+  // Next.js SSR inserts <!-- --> comment nodes between adjacent JSX text — strip them before matching
+  const payHtml = payHtmlRaw.replace(/<!--.*?-->/g, '');
   if (!payHtml.includes('Demo Shop')) throw new Error('Checkout page missing store name');
   if (!payHtml.includes('Pay 0.25 ZEC')) throw new Error('Checkout page missing amount');
   console.log('OK: Checkout page renders correctly.');
