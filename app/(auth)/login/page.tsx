@@ -20,7 +20,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    router.push('/dashboard');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    router.push('/dashboard' as any);
     router.refresh();
   }
 
@@ -51,7 +52,8 @@ export default function LoginPage() {
         </button>
       </form>
       <p className="mt-6 text-sm text-gray-600">
-        No account? <Link href="/signup" className="underline">Sign up</Link>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        No account? <Link href={'/signup' as any} className="underline">Sign up</Link>
       </p>
     </main>
   );
