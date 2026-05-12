@@ -1,0 +1,2 @@
+-- Demo merchant data is seeded via `scripts/seed-demo-merchant.ts`
+-- because the API key secret cannot live in version control.
