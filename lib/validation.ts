@@ -98,3 +98,9 @@ export const invoiceCreateSchema = z.object({
 export function parseInvoiceCreate(input: unknown) {
   return invoiceCreateSchema.parse(input);
 }
+
+export const rotateInputSchema = z.object({
+  apiKeyId:   z.string().uuid(),
+  graceHours: z.union([z.literal(24), z.literal(168), z.literal(720)]),
+});
+export function parseRotateInput(input: unknown) { return rotateInputSchema.parse(input); }
