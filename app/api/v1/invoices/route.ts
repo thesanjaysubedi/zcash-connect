@@ -47,7 +47,13 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return apiError(auth.status, auth.code, auth.message);
 
   const url = new URL(req.url);
-  const status = url.searchParams.get('status') ?? undefined;
+  const VALID_STATUSES = new Set(['open', 'paid', 'expired', 'void']);
+  const statusParam = url.searchParams.get('status');
+  if (statusParam && !VALID_STATUSES.has(statusParam)) {
+    return apiError(422, 'invalid_status',
+      `status must be one of: ${[...VALID_STATUSES].join(', ')}`, 'status');
+  }
+  const status = statusParam ?? undefined;
   const limitRaw = url.searchParams.get('limit');
   const limit = Math.min(100, Math.max(1, Number(limitRaw ?? '50') || 50));
   const before = url.searchParams.get('before') ?? undefined;
