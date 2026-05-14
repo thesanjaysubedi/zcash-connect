@@ -19,48 +19,59 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
   const now = new Date().toISOString();
+  const failures: string[] = [];
 
-  // Sweep #1 — expire open invoices past their deadline (existing behaviour).
-  const { data, error } = await supabase
-    .from('invoices')
-    .update({ status: 'expired', updated_at: now })
-    .lt('expires_at', now)
-    .eq('status', 'open')
-    .select('id');
-
-  if (error) return NextResponse.json({ error: { code: 'internal', message: error.message } }, { status: 500 });
-
-  const invoices_expired = data?.length ?? 0;
+  // Sweep #1 — expire open invoices past their deadline.
+  let invoices_expired = 0;
+  try {
+    const { data, error } = await supabase
+      .from('invoices')
+      .update({ status: 'expired', updated_at: now })
+      .lt('expires_at', now)
+      .eq('status', 'open')
+      .select('id');
+    if (error) failures.push(`invoices: ${error.message}`);
+    else invoices_expired = data?.length ?? 0;
+  } catch (e) {
+    failures.push(`invoices: ${(e as Error).message}`);
+  }
 
   // Sweep #2 — revoke api_keys whose expires_at has passed and that aren't already revoked.
-  const { data: keysData, error: keysErr } = await supabase
-    .from('api_keys')
-    .update({ revoked_at: now })
-    .lt('expires_at', now)
-    .is('revoked_at', null)
-    .select('id');
-
-  if (keysErr) return NextResponse.json({ error: { code: 'internal', message: keysErr.message } }, { status: 500 });
-
-  const keys_expired = keysData?.length ?? 0;
+  let keys_expired = 0;
+  try {
+    const { data, error } = await supabase
+      .from('api_keys')
+      .update({ revoked_at: now })
+      .lt('expires_at', now)
+      .is('revoked_at', null)
+      .select('id');
+    if (error) failures.push(`keys: ${error.message}`);
+    else keys_expired = data?.length ?? 0;
+  } catch (e) {
+    failures.push(`keys: ${(e as Error).message}`);
+  }
 
   // Sweep #3 — purge api_requests rows older than 90 days.
-  const cutoff = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString();
-  const { data: purgeData, error: purgeErr } = await supabase
-    .from('api_requests')
-    .delete()
-    .lt('created_at', cutoff)
-    .select('id');
-
-  if (purgeErr) return NextResponse.json({ error: { code: 'internal', message: purgeErr.message } }, { status: 500 });
-
-  const logs_purged = purgeData?.length ?? 0;
+  let logs_purged = 0;
+  try {
+    const cutoff = new Date(Date.parse(now) - 90 * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('api_requests')
+      .delete()
+      .lt('created_at', cutoff)
+      .select('id');
+    if (error) failures.push(`logs: ${error.message}`);
+    else logs_purged = data?.length ?? 0;
+  } catch (e) {
+    failures.push(`logs: ${(e as Error).message}`);
+  }
 
   return NextResponse.json({
     expired: invoices_expired, // legacy field — preserve for existing callers (smoke script)
     invoices_expired,
     keys_expired,
     logs_purged,
+    failures,
   });
 }
 

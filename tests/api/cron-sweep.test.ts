@@ -72,4 +72,12 @@ describe('cron sweep', () => {
     const { data: after } = await admin.from('api_requests').select('id').eq('id', stale!.id).maybeSingle();
     expect(after).toBeNull();
   });
+
+  it('returns failures array on the happy path (empty when all sweeps succeed)', async () => {
+    const r = await SWEEP(req());
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(Array.isArray(body.failures)).toBe(true);
+    expect(body.failures.length).toBe(0);
+  });
 });
