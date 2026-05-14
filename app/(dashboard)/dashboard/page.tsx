@@ -6,16 +6,28 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: merchant } = await supabase
     .from('merchants')
-    .select('store_name, verified, payout_address')
+    .select('store_name, verified, payout_address, archived_at')
     .eq('id', user!.id)
     .single();
+
+  const archived = merchant!.archived_at !== null;
 
   return (
     <div className="px-8 py-10 max-w-3xl">
       <h1 className="text-2xl font-semibold">Overview</h1>
       <p className="mt-1 text-gray-600">Welcome, {merchant!.store_name}.</p>
 
-      {!merchant!.verified && (
+      {archived && (
+        <div className="mt-8 rounded-md border border-amber-300 bg-amber-50 p-4">
+          <h2 className="font-medium text-amber-900">Account archived</h2>
+          <p className="mt-1 text-sm text-amber-900">
+            All API keys are revoked and new payments are blocked. Restore the account from{' '}
+            <Link href="/dashboard/settings" className="underline">Settings</Link>.
+          </p>
+        </div>
+      )}
+
+      {!archived && !merchant!.verified && (
         <div className="mt-8 rounded-md border border-amber-200 bg-amber-50 p-4">
           <h2 className="font-medium text-amber-900">Pending verification</h2>
           <p className="mt-1 text-sm text-amber-900">
@@ -24,7 +36,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {merchant!.verified && !merchant!.payout_address && (
+      {!archived && merchant!.verified && !merchant!.payout_address && (
         <div className="mt-8 rounded-md border border-blue-200 bg-blue-50 p-4">
           <h2 className="font-medium text-blue-900">Set your Zcash payout address</h2>
           <p className="mt-1 text-sm text-blue-900">
@@ -36,7 +48,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {merchant!.verified && merchant!.payout_address && (
+      {!archived && merchant!.verified && merchant!.payout_address && (
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Link href="/dashboard/api-keys" className="rounded border border-gray-200 p-4 hover:border-gray-400">
             <h2 className="font-medium">API keys</h2>
