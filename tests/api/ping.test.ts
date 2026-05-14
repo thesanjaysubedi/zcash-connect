@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient as createSb } from '@supabase/supabase-js';
 import { GET as PING } from '@/app/api/v1/ping/route';
 import { generateApiKey } from '@/lib/api-keys';
@@ -9,7 +9,7 @@ const admin = createSb(
   { auth: { persistSession: false } },
 );
 
-const MERCHANT_ID = '00000000-0000-0000-0000-000000000001';
+let MERCHANT_ID: string;
 
 async function seedKey() {
   const k = await generateApiKey();
@@ -25,11 +25,28 @@ function req(headers: Record<string,string> = {}) {
 
 describe('GET /api/v1/ping', () => {
   beforeAll(async () => {
-    await admin.from('merchants').upsert({
-      id: MERCHANT_ID, store_name: 'Ping', payout_address: 'u1' + 'a'.repeat(180),
-      verified: true, verified_at: new Date().toISOString(),
+    const email = `test-ping-${Date.now()}@example.com`;
+    const { data: user, error: userErr } = await admin.auth.admin.createUser({
+      email, password: 'longenoughpw', email_confirm: true,
+      user_metadata: { store_name: 'Ping' },
     });
-    await admin.from('api_keys').delete().eq('merchant_id', MERCHANT_ID);
+    if (userErr || !user.user) throw userErr ?? new Error('createUser failed');
+    MERCHANT_ID = user.user.id;
+
+    // The handle_new_user trigger creates a merchant row; promote it to verified
+    // with a payout address so the auth path accepts the key.
+    await admin.from('merchants').update({
+      store_name: 'Ping',
+      payout_address: 'u1' + 'a'.repeat(180),
+      verified: true,
+      verified_at: new Date().toISOString(),
+    }).eq('id', MERCHANT_ID);
+  });
+
+  afterAll(async () => {
+    if (MERCHANT_ID) {
+      await admin.auth.admin.deleteUser(MERCHANT_ID);
+    }
   });
 
   it('returns 200 + merchant info for a valid key', async () => {
@@ -39,6 +56,7 @@ describe('GET /api/v1/ping', () => {
     const body = await r.json();
     expect(body.ok).toBe(true);
     expect(body.merchant_id).toBe(MERCHANT_ID);
+    expect(body.store_name).toBe('Ping');
     expect(typeof body.server_time).toBe('string');
   });
 
