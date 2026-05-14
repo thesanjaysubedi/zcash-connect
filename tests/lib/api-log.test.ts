@@ -68,4 +68,30 @@ describe('withApiLog', () => {
     expect(payload.api_key_id).toBeNull();
     expect(payload.error_code).toBe('unauthorized');
   });
+
+  it('logs synthetic 500 and re-throws when the inner handler throws', async () => {
+    const boom = new Error('boom');
+    const handler = withApiLog(async () => { throw boom; });
+    await expect(handler(make('http://x/api/v1/invoices', { method: 'POST' }), {})).rejects.toBe(boom);
+    await new Promise((r) => setImmediate(r));
+    const payload = insertSpy.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      merchant_id: null,
+      api_key_id:  null,
+      error_code:  'internal',
+      method:      'POST',
+      path:        '/api/v1/invoices',
+      status:      500,
+    });
+  });
+
+  it('logs null sentinels when the handler sets none', async () => {
+    const handler = withApiLog(async () => NextResponse.json({ ok: true }, { status: 200 }));
+    await handler(make('http://x/api/v1/invoices'), {});
+    await new Promise((r) => setImmediate(r));
+    const payload = insertSpy.mock.calls[0][0];
+    expect(payload.merchant_id).toBeNull();
+    expect(payload.api_key_id).toBeNull();
+    expect(payload.error_code).toBeNull();
+  });
 });
