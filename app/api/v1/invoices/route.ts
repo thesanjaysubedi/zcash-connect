@@ -4,8 +4,9 @@ import { authenticateApiKey } from '@/lib/api-auth';
 import { parseInvoiceCreate } from '@/lib/validation';
 import { createInvoice, listInvoicesForMerchant } from '@/lib/invoice-service';
 import { apiError } from '@/lib/error-envelope';
+import { withApiLog } from '@/lib/api-log';
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const auth = await authenticateApiKey(req.headers);
   if (!auth.ok) return apiError(auth.status, auth.code, auth.message);
 
@@ -35,14 +36,17 @@ export async function POST(req: NextRequest) {
       description: parsed.description,
       expires_in: parsed.expires_in,
     });
-    return NextResponse.json(dto, { status: 201 });
+    const res = NextResponse.json(dto, { status: 201 });
+    res.headers.set('x-zc-merchant-id', auth.merchantId);
+    res.headers.set('x-zc-api-key-id',  auth.apiKeyId);
+    return res;
   } catch (e) {
     console.error('[POST /api/v1/invoices] createInvoice failed:', e);
     return apiError(500, 'internal', 'Failed to create invoice');
   }
 }
 
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest) {
   const auth = await authenticateApiKey(req.headers);
   if (!auth.ok) return apiError(auth.status, auth.code, auth.message);
 
@@ -60,9 +64,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const r = await listInvoicesForMerchant(auth.merchantId, auth.storeName, { status, limit, before });
-    return NextResponse.json(r);
+    const res = NextResponse.json(r);
+    res.headers.set('x-zc-merchant-id', auth.merchantId);
+    res.headers.set('x-zc-api-key-id',  auth.apiKeyId);
+    return res;
   } catch (e) {
     console.error('[GET /api/v1/invoices] listInvoicesForMerchant failed:', e);
     return apiError(500, 'internal', 'Failed to list invoices');
   }
 }
+
+export const POST = withApiLog(handlePost);
+export const GET  = withApiLog(handleGet);
