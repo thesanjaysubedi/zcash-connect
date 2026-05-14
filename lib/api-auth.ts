@@ -18,7 +18,7 @@ export async function authenticateApiKey(headers: Headers): Promise<AuthResult> 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, merchant_id, hashed_secret, revoked_at, merchants:merchants!inner(id, verified, payout_address, store_name, archived_at)')
+    .select('id, merchant_id, hashed_secret, revoked_at, expires_at, merchants:merchants!inner(id, verified, payout_address, store_name, archived_at)')
     .eq('prefix', parsed.prefix)
     .single();
 
@@ -27,6 +27,9 @@ export async function authenticateApiKey(headers: Headers): Promise<AuthResult> 
   }
   if (data.revoked_at) {
     return { ok: false, status: 401, code: 'unauthorized', message: 'API key revoked' };
+  }
+  if (data.expires_at && new Date(data.expires_at as string).getTime() < Date.now()) {
+    return { ok: false, status: 401, code: 'key_expired', message: 'API key expired (rotation grace ended)' };
   }
   const match = await verifyApiKey(parsed.secret, data.hashed_secret);
   if (!match) {

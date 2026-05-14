@@ -106,3 +106,41 @@ describe('authenticateApiKey', () => {
     if (!r.ok) expect(r.status).toBe(401);
   });
 });
+
+describe('authenticateApiKey — rotation expiry', () => {
+  beforeEach(() => { mockSingle.mockReset(); mockUpdate.mockClear(); });
+
+  it('rejects keys whose expires_at is in the past', async () => {
+    const { fullKey, prefix, hashedSecret } = await generateApiKey();
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'kid', merchant_id: 'mid', prefix, hashed_secret: hashedSecret,
+        revoked_at: null,
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+        merchants: { id: 'mid', verified: true, payout_address: 'u1' + 'a'.repeat(180), store_name: 'S' },
+      },
+      error: null,
+    });
+    const r = await authenticateApiKey(new Headers({ authorization: `Bearer ${fullKey}` }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(401);
+      expect(r.code).toBe('key_expired');
+    }
+  });
+
+  it('accepts keys still within the rotation grace window', async () => {
+    const { fullKey, prefix, hashedSecret } = await generateApiKey();
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'kid', merchant_id: 'mid', prefix, hashed_secret: hashedSecret,
+        revoked_at: null,
+        expires_at: new Date(Date.now() + 3600_000).toISOString(),
+        merchants: { id: 'mid', verified: true, payout_address: 'u1' + 'a'.repeat(180), store_name: 'S' },
+      },
+      error: null,
+    });
+    const r = await authenticateApiKey(new Headers({ authorization: `Bearer ${fullKey}` }));
+    expect(r.ok).toBe(true);
+  });
+});
