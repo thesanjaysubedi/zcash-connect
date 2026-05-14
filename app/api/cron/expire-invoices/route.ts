@@ -2,10 +2,19 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
-  const provided = req.headers.get('authorization') ?? req.headers.get('x-cron-secret');
-  const expected = `Bearer ${process.env.CRON_SECRET}`;
-  if (!provided || (provided !== expected && provided !== process.env.CRON_SECRET)) {
-    return NextResponse.json({ error: { code: 'unauthorized', message: 'Bad cron secret' } }, { status: 401 });
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json(
+      { error: { code: 'internal', message: 'CRON_SECRET not configured' } },
+      { status: 500 },
+    );
+  }
+
+  const provided = req.headers.get('authorization');
+  if (provided !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json(
+      { error: { code: 'unauthorized', message: 'Bad cron secret' } },
+      { status: 401 },
+    );
   }
 
   const supabase = createAdminClient();
