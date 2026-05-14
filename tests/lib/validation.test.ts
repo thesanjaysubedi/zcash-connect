@@ -3,6 +3,7 @@ import {
   parseSignupForm, parseSettingsForm,
   parseApiKeyCreate, parseApiKeyRename,
   parseInvoiceCreate, parseAdminVerify,
+  parseRotateInput,
   parseAmountZec, isOrchardUnifiedAddress,
 } from '@/lib/validation';
 
@@ -138,5 +139,21 @@ describe('parseInvoiceCreate', () => {
   it('enforces memo byte-length', () => {
     const long = 'A'.repeat(513);
     expect(() => parseInvoiceCreate({ amount_zec: '1', memo_text: long })).toThrow(/512/);
+  });
+});
+
+describe('parseRotateInput', () => {
+  it('accepts the three allowed grace windows', () => {
+    expect(parseRotateInput({ apiKeyId: UUID, graceHours: 24  })).toEqual({ apiKeyId: UUID, graceHours: 24 });
+    expect(parseRotateInput({ apiKeyId: UUID, graceHours: 168 })).toEqual({ apiKeyId: UUID, graceHours: 168 });
+    expect(parseRotateInput({ apiKeyId: UUID, graceHours: 720 })).toEqual({ apiKeyId: UUID, graceHours: 720 });
+  });
+  it('rejects other grace values', () => {
+    expect(() => parseRotateInput({ apiKeyId: UUID, graceHours: 1 })).toThrow();
+    expect(() => parseRotateInput({ apiKeyId: UUID, graceHours: 0 })).toThrow();
+    expect(() => parseRotateInput({ apiKeyId: UUID, graceHours: 8760 })).toThrow();
+  });
+  it('rejects non-uuid apiKeyId', () => {
+    expect(() => parseRotateInput({ apiKeyId: 'not-uuid', graceHours: 24 })).toThrow();
   });
 });
