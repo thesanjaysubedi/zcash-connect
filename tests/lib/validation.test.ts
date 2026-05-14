@@ -27,9 +27,13 @@ describe('isOrchardUnifiedAddress', () => {
   it('accepts u1 prefix and plausible length', () => {
     expect(isOrchardUnifiedAddress('u1' + 'a'.repeat(180))).toBe(true);
   });
+  it('accepts testnet utest1 prefix and plausible length', () => {
+    expect(isOrchardUnifiedAddress('utest1' + 'a'.repeat(180))).toBe(true);
+  });
   it('rejects wrong prefix or too short', () => {
     expect(isOrchardUnifiedAddress('t1abc')).toBe(false);
     expect(isOrchardUnifiedAddress('u1')).toBe(false);
+    expect(isOrchardUnifiedAddress('utest1')).toBe(false);
     expect(isOrchardUnifiedAddress('')).toBe(false);
   });
 });

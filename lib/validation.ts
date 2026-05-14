@@ -2,13 +2,15 @@ import { z } from 'zod';
 
 // --------------------------------------------------------------------
 // Address (heuristic only — full Bech32m validation is Phase 3)
+// Mainnet UAs start with "u1...", testnet UAs start with "utest1..."
 // --------------------------------------------------------------------
 export function isOrchardUnifiedAddress(addr: string): boolean {
-  return typeof addr === 'string' && addr.startsWith('u1') && addr.length >= 80;
+  if (typeof addr !== 'string' || addr.length < 80) return false;
+  return addr.startsWith('u1') || addr.startsWith('utest1');
 }
 
 const payoutAddress = z.string().refine(isOrchardUnifiedAddress, {
-  message: 'must be an Orchard unified address starting with "u1"',
+  message: 'must be an Orchard unified address (mainnet "u1…" or testnet "utest1…")',
 });
 
 // --------------------------------------------------------------------
