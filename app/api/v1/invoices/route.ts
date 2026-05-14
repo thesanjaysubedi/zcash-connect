@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(dto, { status: 201 });
   } catch (e) {
-    return apiError(500, 'internal', (e as Error).message);
+    console.error('[POST /api/v1/invoices] createInvoice failed:', e);
+    return apiError(500, 'internal', 'Failed to create invoice');
   }
 }
 
