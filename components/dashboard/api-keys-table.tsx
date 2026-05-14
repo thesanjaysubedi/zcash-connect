@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { revokeApiKey, renameApiKey } from '@/app/(dashboard)/dashboard/api-keys/actions';
+import { RotateKeyButton } from '@/components/dashboard/developers/rotate-key-button';
 
 export interface ApiKeyRow {
   id: string; name: string; prefix: string;
@@ -10,6 +11,18 @@ export interface ApiKeyRow {
   // developers/keys page can pass them without a type error.
   expires_at?: string | null;
   rotated_to?: string | null;
+}
+
+function statusBadge(k: ApiKeyRow): React.ReactNode {
+  if (k.revoked_at) return <span className="text-red-600">revoked</span>;
+  if (k.expires_at && new Date(k.expires_at) < new Date()) return <span className="text-red-600">expired</span>;
+  if (k.expires_at) {
+    const ms = new Date(k.expires_at).getTime() - Date.now();
+    const hours = Math.round(ms / 3600_000);
+    const label = hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+    return <span className="text-amber-700">rotating · expires in {label}</span>;
+  }
+  return <span>active</span>;
 }
 
 export function ApiKeysTable({ keys }: { keys: ApiKeyRow[] }) {
@@ -73,7 +86,7 @@ export function ApiKeysTable({ keys }: { keys: ApiKeyRow[] }) {
               </td>
               <td className="font-mono text-xs">{k.prefix}…</td>
               <td className="text-gray-600">{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : 'never'}</td>
-              <td>{k.revoked_at ? <span className="text-red-600">revoked</span> : 'active'}</td>
+              <td>{statusBadge(k)}</td>
               <td className="text-right">
                 {editingId === k.id ? (
                   <span className="space-x-3">
@@ -88,6 +101,9 @@ export function ApiKeysTable({ keys }: { keys: ApiKeyRow[] }) {
                   </span>
                 ) : !k.revoked_at ? (
                   <span className="space-x-3">
+                    {!k.expires_at && (
+                      <RotateKeyButton keyId={k.id} keyName={k.name} />
+                    )}
                     <button onClick={() => beginEdit(k)} disabled={pending}
                             className="text-sm text-gray-700 hover:underline disabled:opacity-50">
                       Rename
