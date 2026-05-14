@@ -6,6 +6,10 @@ import { revokeApiKey, renameApiKey } from '@/app/(dashboard)/dashboard/api-keys
 export interface ApiKeyRow {
   id: string; name: string; prefix: string;
   last_used_at: string | null; revoked_at: string | null; created_at: string;
+  // Task 11 will use these for rotate UI; declared optional here so the
+  // developers/keys page can pass them without a type error.
+  expires_at?: string | null;
+  rotated_to?: string | null;
 }
 
 export function ApiKeysTable({ keys }: { keys: ApiKeyRow[] }) {
