@@ -10,7 +10,12 @@ export async function GET(
   const auth = await authenticateApiKey(req.headers);
   if (!auth.ok) return apiError(auth.status, auth.code, auth.message);
   const { id } = await ctx.params;
-  const invoice = await getInvoiceForMerchant(id, auth.merchantId, auth.storeName);
-  if (!invoice) return apiError(404, 'not_found', 'Invoice not found');
-  return NextResponse.json(invoice);
+  try {
+    const invoice = await getInvoiceForMerchant(id, auth.merchantId, auth.storeName);
+    if (!invoice) return apiError(404, 'not_found', 'Invoice not found');
+    return NextResponse.json(invoice);
+  } catch (e) {
+    console.error('[GET /api/v1/invoices/:id] getInvoiceForMerchant failed:', e);
+    return apiError(500, 'internal', 'Failed to fetch invoice');
+  }
 }

@@ -51,6 +51,11 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, Number(limitRaw ?? '50') || 50));
   const before = url.searchParams.get('before') ?? undefined;
 
-  const r = await listInvoicesForMerchant(auth.merchantId, auth.storeName, { status, limit, before });
-  return NextResponse.json(r);
+  try {
+    const r = await listInvoicesForMerchant(auth.merchantId, auth.storeName, { status, limit, before });
+    return NextResponse.json(r);
+  } catch (e) {
+    console.error('[GET /api/v1/invoices] listInvoicesForMerchant failed:', e);
+    return apiError(500, 'internal', 'Failed to list invoices');
+  }
 }
