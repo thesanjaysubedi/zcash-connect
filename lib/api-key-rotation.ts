@@ -3,6 +3,10 @@ import { generateApiKey } from '@/lib/api-keys';
 
 export interface RotateResult { fullKey: string; prefix: string; newKeyId: string }
 
+// NOTE(atomicity): the INSERT-then-UPDATE pair is not transactional —
+// supabase-js exposes no transaction primitive. If the second write fails
+// after the first succeeds, the new key exists but the old key isn't
+// marked rotating. Convert to a Postgres RPC if this becomes a problem.
 export async function rotateApiKey(input: {
   apiKeyId: string;
   graceHours: 24 | 168 | 720;
