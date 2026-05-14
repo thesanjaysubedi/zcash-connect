@@ -1,7 +1,9 @@
 import type { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-type Handler<C> = (req: NextRequest, ctx: C) => Promise<NextResponse>;
+type DynHandler<C>   = (req: NextRequest, ctx: C) => Promise<NextResponse>;
+type SimpleHandler   = (req: NextRequest) => Promise<NextResponse>;
+type NoArgHandler    = () => Promise<NextResponse>;
 
 function clientIp(req: NextRequest): string | null {
   const xff = req.headers.get('x-forwarded-for');
@@ -27,7 +29,12 @@ function fireLog(payload: {
   createAdminClient().from('api_requests').insert(payload).then(undefined, () => {});
 }
 
-export function withApiLog<C>(handler: Handler<C>): Handler<C> {
+export function withApiLog(handler: NoArgHandler): (req: NextRequest, ctx?: any) => Promise<NextResponse>;
+export function withApiLog(handler: SimpleHandler): SimpleHandler;
+export function withApiLog<C>(handler: DynHandler<C>): DynHandler<C>;
+export function withApiLog(
+  handler: (req: NextRequest, ctx?: any) => Promise<NextResponse>,
+): (req: NextRequest, ctx?: any) => Promise<NextResponse> {
   return async (req, ctx) => {
     const start = Date.now();
     const path  = new URL(req.url).pathname;
