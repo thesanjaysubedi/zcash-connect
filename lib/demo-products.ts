@@ -6,9 +6,9 @@ export interface DemoProduct {
 }
 
 export const DEMO_PRODUCTS: DemoProduct[] = [
-  { id: 'tshirt', name: 'Zcash T-shirt (Orchard)', price_zec: '0.25', description: 'Cotton tee with the Orchard logo.' },
-  { id: 'sticker-pack', name: 'Sticker Pack', price_zec: '0.05', description: '10 holographic Zcash stickers.' },
-  { id: 'mug', name: 'Shielded Mug', price_zec: '0.10', description: '11oz ceramic, white with a u1 print.' },
+  { id: 'tshirt', name: 'Zcash T-shirt (Orchard)', price_zec: '0.001', description: 'Cotton tee with the Orchard logo.' },
+  { id: 'sticker-pack', name: 'Sticker Pack', price_zec: '0.001', description: '10 holographic Zcash stickers.' },
+  { id: 'mug', name: 'Shielded Mug', price_zec: '0.001', description: '11oz ceramic, white with a u1 print.' },
 ];
 
 export function findProduct(id: string): DemoProduct | undefined {
