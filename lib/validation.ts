@@ -104,3 +104,9 @@ export const rotateInputSchema = z.object({
   graceHours: z.union([z.literal(24), z.literal(168), z.literal(720)]),
 });
 export function parseRotateInput(input: unknown) { return rotateInputSchema.parse(input); }
+
+export const waitlistInputSchema = z.object({
+  email:  z.string().email().max(254),
+  source: z.string().max(128).optional(),
+});
+export function parseWaitlistInput(input: unknown) { return waitlistInputSchema.parse(input); }
