@@ -31,7 +31,7 @@ export function TryDemoButton() {
         disabled={pending}
         className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
       >
-        {pending ? 'Creating your demo…' : 'Try the demo →'}
+        {pending ? 'Creating your demo…' : 'Try as a merchant →'}
       </button>
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
