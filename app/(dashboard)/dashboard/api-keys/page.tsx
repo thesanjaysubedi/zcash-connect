@@ -7,8 +7,8 @@ export default async function ApiKeysPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: merchant } = await supabase
-    .from('merchants').select('verified, payout_address').eq('id', user!.id).single();
-  if (!merchant!.verified || !merchant!.payout_address) redirect('/dashboard');
+    .from('merchants').select('verified, payout_address, archived_at').eq('id', user!.id).single();
+  if (!merchant!.verified || !merchant!.payout_address || merchant!.archived_at) redirect('/dashboard');
 
   const { data: keys } = await supabase
     .from('api_keys')

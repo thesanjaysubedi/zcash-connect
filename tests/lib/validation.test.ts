@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseSignupForm, parseSettingsForm,
-  parseApiKeyCreate, parseInvoiceCreate,
+  parseApiKeyCreate, parseApiKeyRename,
+  parseInvoiceCreate, parseAdminVerify,
   parseAmountZec, isOrchardUnifiedAddress,
 } from '@/lib/validation';
+
+const UA = 'u1' + 'a'.repeat(180);
+const UUID = '00000000-0000-0000-0000-000000000001';
 
 describe('parseAmountZec', () => {
   it('accepts decimal strings up to 8 fractional digits', () => {
@@ -55,11 +59,40 @@ describe('parseSignupForm', () => {
 
 describe('parseSettingsForm', () => {
   it('accepts valid input', () => {
-    expect(parseSettingsForm({ store_name: 'Y', payout_address: 'u1' + 'a'.repeat(180) }))
+    expect(parseSettingsForm({ store_name: 'Y', payout_address: UA }))
       .toMatchObject({ store_name: 'Y' });
   });
   it('rejects bad payout address', () => {
     expect(() => parseSettingsForm({ store_name: 'Y', payout_address: 'nope' })).toThrow();
+  });
+  it('accepts new optional profile fields', () => {
+    const r = parseSettingsForm({
+      store_name: 'Y',
+      payout_address: UA,
+      contact_email: 'hi@store.co',
+      support_url:   'https://store.co/help',
+      brand_color:   '#1a2b3c',
+      logo_url:      'https://store.co/logo.png',
+    });
+    expect(r.contact_email).toBe('hi@store.co');
+    expect(r.brand_color).toBe('#1a2b3c');
+  });
+  it('treats empty strings as not-provided for optional fields', () => {
+    const r = parseSettingsForm({
+      store_name: 'Y', payout_address: UA,
+      contact_email: '', support_url: '', brand_color: '', logo_url: '',
+    });
+    expect(r.contact_email).toBeUndefined();
+    expect(r.brand_color).toBeUndefined();
+  });
+  it('rejects malformed contact_email and brand_color', () => {
+    expect(() => parseSettingsForm({ store_name: 'Y', payout_address: UA, contact_email: 'not-email' })).toThrow();
+    expect(() => parseSettingsForm({ store_name: 'Y', payout_address: UA, brand_color: 'red' })).toThrow();
+    expect(() => parseSettingsForm({ store_name: 'Y', payout_address: UA, brand_color: '#12345' })).toThrow();
+  });
+  it('rejects malformed support_url and logo_url', () => {
+    expect(() => parseSettingsForm({ store_name: 'Y', payout_address: UA, support_url: 'not a url' })).toThrow();
+    expect(() => parseSettingsForm({ store_name: 'Y', payout_address: UA, logo_url:    'also not' })).toThrow();
   });
 });
 
@@ -67,6 +100,28 @@ describe('parseApiKeyCreate', () => {
   it('requires non-empty name', () => {
     expect(parseApiKeyCreate({ name: 'Production' })).toEqual({ name: 'Production' });
     expect(() => parseApiKeyCreate({ name: '' })).toThrow();
+  });
+});
+
+describe('parseApiKeyRename', () => {
+  it('accepts valid uuid + name', () => {
+    expect(parseApiKeyRename({ id: UUID, name: 'Staging' }))
+      .toEqual({ id: UUID, name: 'Staging' });
+  });
+  it('rejects bad id or empty / too-long name', () => {
+    expect(() => parseApiKeyRename({ id: 'not-uuid', name: 'X' })).toThrow();
+    expect(() => parseApiKeyRename({ id: UUID, name: '' })).toThrow();
+    expect(() => parseApiKeyRename({ id: UUID, name: 'a'.repeat(51) })).toThrow();
+  });
+});
+
+describe('parseAdminVerify', () => {
+  it('accepts a uuid merchant_id', () => {
+    expect(parseAdminVerify({ merchant_id: UUID })).toEqual({ merchant_id: UUID });
+  });
+  it('rejects non-uuid input', () => {
+    expect(() => parseAdminVerify({ merchant_id: 'nope' })).toThrow();
+    expect(() => parseAdminVerify({})).toThrow();
   });
 });
 

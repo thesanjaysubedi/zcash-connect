@@ -13,6 +13,20 @@ const payoutAddress = z.string().refine(isOrchardUnifiedAddress, {
   message: 'must be an Orchard unified address (mainnet "u1…" or testnet "utest1…")',
 });
 
+// Treat '' as "not provided" so optional fields can be cleared via empty input.
+const optionalEmail = z.preprocess(
+  (v) => (v === '' || v === null ? undefined : v),
+  z.string().email().max(254).optional(),
+);
+const optionalUrl = z.preprocess(
+  (v) => (v === '' || v === null ? undefined : v),
+  z.string().url().max(2048).optional(),
+);
+const optionalHexColor = z.preprocess(
+  (v) => (v === '' || v === null ? undefined : v),
+  z.string().regex(/^#[0-9a-fA-F]{6}$/, 'must be a hex color like #1a2b3c').optional(),
+);
+
 // --------------------------------------------------------------------
 // Amount — decimal string to BigInt zatoshis (1 ZEC = 1e8 zatoshis)
 // --------------------------------------------------------------------
@@ -43,8 +57,23 @@ export function parseSignupForm(input: unknown) { return signupSchema.parse(inpu
 export const settingsSchema = z.object({
   store_name: z.string().min(1).max(100),
   payout_address: payoutAddress,
+  contact_email: optionalEmail,
+  support_url:   optionalUrl,
+  brand_color:   optionalHexColor,
+  logo_url:      optionalUrl,
 });
 export function parseSettingsForm(input: unknown) { return settingsSchema.parse(input); }
+
+export const apiKeyRenameSchema = z.object({
+  id:   z.string().uuid(),
+  name: z.string().min(1).max(50),
+});
+export function parseApiKeyRename(input: unknown) { return apiKeyRenameSchema.parse(input); }
+
+export const adminVerifySchema = z.object({
+  merchant_id: z.string().uuid(),
+});
+export function parseAdminVerify(input: unknown) { return adminVerifySchema.parse(input); }
 
 export const apiKeyCreateSchema = z.object({
   name: z.string().min(1).max(50),

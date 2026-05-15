@@ -18,7 +18,7 @@ export async function authenticateApiKey(headers: Headers): Promise<AuthResult> 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, merchant_id, hashed_secret, revoked_at, merchants:merchants!inner(id, verified, payout_address, store_name)')
+    .select('id, merchant_id, hashed_secret, revoked_at, merchants:merchants!inner(id, verified, payout_address, store_name, archived_at)')
     .eq('prefix', parsed.prefix)
     .single();
 
@@ -33,6 +33,9 @@ export async function authenticateApiKey(headers: Headers): Promise<AuthResult> 
     return { ok: false, status: 401, code: 'unauthorized', message: 'Invalid API key' };
   }
   const merchant = Array.isArray(data.merchants) ? data.merchants[0] : data.merchants;
+  if (merchant.archived_at) {
+    return { ok: false, status: 403, code: 'merchant_archived', message: 'Merchant account is archived' };
+  }
   if (!merchant.verified) {
     return { ok: false, status: 403, code: 'merchant_unverified', message: 'Merchant not verified yet' };
   }
