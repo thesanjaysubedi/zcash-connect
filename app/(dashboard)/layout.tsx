@@ -38,7 +38,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           )}
           {canCreate && (
             <>
-              <Link href="/dashboard/api-keys" className="block rounded px-2 py-1.5 hover:bg-gray-100">API keys</Link>
+              <Link href="/dashboard/developers/keys" className="block rounded px-2 py-1.5 hover:bg-gray-100">Developers</Link>
               <Link href="/dashboard/invoices" className="block rounded px-2 py-1.5 hover:bg-gray-100">Invoices</Link>
             </>
           )}
