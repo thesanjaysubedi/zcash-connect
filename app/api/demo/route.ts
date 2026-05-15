@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createDemoSandbox } from '@/lib/demo-provision';
 import { apiError } from '@/lib/error-envelope';
 
+// Cookie-based rate-limit for one-click demo provisioning.
+// Per-browser, not per-IP. A determined visitor can bypass this in
+// incognito or by clearing the cookie. The cookie value is the ISO
+// timestamp of the last demo creation; we don't sign it because the
+// real backstop is the 7-day demo expiry sweep (cron Sweep #4),
+// not this client-side check. Treat this as spam mitigation only.
 const COOKIE = 'zc_last_demo_at';
 const WINDOW_MS = 60_000;
 
@@ -40,7 +46,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: 60,
+    maxAge: WINDOW_MS / 1000,
   });
   return res;
 }
