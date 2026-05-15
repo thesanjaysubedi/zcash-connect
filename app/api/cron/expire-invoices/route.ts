@@ -66,11 +66,35 @@ export async function POST(req: NextRequest) {
     failures.push(`logs: ${(e as Error).message}`);
   }
 
+  // Sweep #4 — hard-delete demo merchants whose demo_expires_at has passed.
+  // ON DELETE CASCADE from auth.users → merchants → api_keys/invoices/api_requests
+  // cleans up the rest of the row tree.
+  let demos_purged = 0;
+  try {
+    const { data: expired, error: selectErr } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('is_demo', true)
+      .lt('demo_expires_at', now);
+    if (selectErr) {
+      failures.push(`demos: ${selectErr.message}`);
+    } else {
+      for (const m of expired ?? []) {
+        const { error: delErr } = await supabase.auth.admin.deleteUser(m.id);
+        if (delErr) failures.push(`demos:${m.id}: ${delErr.message}`);
+        else demos_purged++;
+      }
+    }
+  } catch (e) {
+    failures.push(`demos: ${(e as Error).message}`);
+  }
+
   return NextResponse.json({
     expired: invoices_expired, // legacy field — preserve for existing callers (smoke script)
     invoices_expired,
     keys_expired,
     logs_purged,
+    demos_purged,
     failures,
   });
 }

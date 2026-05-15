@@ -80,4 +80,30 @@ describe('cron sweep', () => {
     expect(Array.isArray(body.failures)).toBe(true);
     expect(body.failures.length).toBe(0);
   });
+
+  it('hard-deletes demo merchants past demo_expires_at', async () => {
+    // Seed a one-off demo auth.user manually using the same shape as
+    // createDemoSandbox(), but with an already-past expiry.
+    const email = `test-cron-demo-${Date.now()}@zcashconnect.demo`;
+    const { data: user, error: userErr } = await admin.auth.admin.createUser({
+      email, password: 'longenoughpw', email_confirm: true,
+      user_metadata: { store_name: 'Cron demo' },
+    });
+    if (userErr || !user.user) throw userErr ?? new Error('seed user failed');
+    const expiredId = user.user.id;
+    await admin.from('merchants').update({
+      is_demo: true,
+      demo_expires_at: new Date(Date.now() - 60_000).toISOString(),
+      verified: true, verified_at: new Date().toISOString(),
+      payout_address: 'utest1' + 'a'.repeat(180),
+    }).eq('id', expiredId);
+
+    const r = await SWEEP(req());
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.demos_purged).toBeGreaterThanOrEqual(1);
+
+    const { data: gone } = await admin.auth.admin.getUserById(expiredId);
+    expect(gone.user).toBeNull();
+  });
 });
