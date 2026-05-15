@@ -18,7 +18,8 @@ export async function rotateKeyAction(input: { apiKeyId: string; graceHours: num
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not signed in' };
 
-  // Authorize: confirm the key belongs to the calling user (RLS would also block, but be explicit)
+  // Authorize: this RLS-scoped SELECT is the ownership gate (rotateApiKey
+  // uses the admin client and bypasses RLS, so we must check ownership here).
   const { data: row } = await supabase.from('api_keys')
     .select('id').eq('id', parsed.apiKeyId).eq('merchant_id', user.id).maybeSingle();
   if (!row) return { ok: false, error: 'API key not found' };
