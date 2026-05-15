@@ -40,12 +40,22 @@ export default function LandingPage() {
           ZcashConnect generates ZIP-321 QR codes, watches the chain, and confirms when a shielded
           ZEC payment lands. Integrate in minutes with a single API.
         </p>
-        <div className="mt-8 flex flex-wrap items-start gap-6">
+        <div className="mt-8 flex flex-wrap items-start gap-4">
           <TryDemoButton />
+          <Link
+            href="/demo"
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+          >
+            Try as a customer →
+          </Link>
           <div id="waitlist" className="flex-1 min-w-[20rem]">
             <WaitlistForm source="landing-hero" />
           </div>
         </div>
+        <p className="mt-3 text-sm text-gray-600">
+          Merchant flow drops you in your own sandbox dashboard.{' '}
+          Customer flow opens a sample store where you can scan a QR to pay.
+        </p>
       </section>
 
       {/* How it works */}
@@ -99,10 +109,16 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-6 py-16 text-center">
           <h2 className="text-2xl font-semibold">Ready to ship?</h2>
           <p className="mt-2 text-gray-700">
-            Try the demo without an account, or join the waitlist for production access.
+            See it from both sides, or join the waitlist for production access.
           </p>
-          <div className="mt-6 flex flex-wrap items-start justify-center gap-6">
+          <div className="mt-6 flex flex-wrap items-start justify-center gap-4">
             <TryDemoButton />
+            <Link
+              href="/demo"
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+            >
+              Try as a customer →
+            </Link>
             <div className="w-full max-w-sm">
               <WaitlistForm source="landing-bottom" />
             </div>
