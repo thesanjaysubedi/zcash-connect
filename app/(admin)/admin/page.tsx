@@ -26,6 +26,7 @@ export default async function AdminPage() {
     .select('id, store_name, payout_address, contact_email, created_at')
     .eq('verified', false)
     .is('archived_at', null)
+    .eq('is_demo', false)
     .order('created_at', { ascending: true })
     .returns<PendingRow[]>();
 
@@ -33,6 +34,7 @@ export default async function AdminPage() {
     .from('merchants')
     .select('id, store_name, verified_at, archived_at')
     .eq('verified', true)
+    .eq('is_demo', false)
     .order('verified_at', { ascending: false })
     .limit(25)
     .returns<VerifiedRow[]>();

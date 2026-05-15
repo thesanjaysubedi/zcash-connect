@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/admin-auth';
 import { SignOutButton } from '@/components/dashboard/sign-out-button';
+import { DemoBanner } from '@/components/dashboard/demo-banner';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -11,7 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: merchant } = await supabase
     .from('merchants')
-    .select('store_name, verified, payout_address, archived_at')
+    .select('store_name, verified, payout_address, archived_at, is_demo, demo_expires_at')
     .eq('id', user.id)
     .single();
 
@@ -22,7 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const isAdmin = isAdminEmail(user.email);
 
   return (
-    <div className="min-h-screen grid grid-cols-[240px_1fr]">
+    <>
+      {merchant.is_demo && <DemoBanner expiresAt={merchant.demo_expires_at} />}
+      <div className="min-h-screen grid grid-cols-[240px_1fr]">
       <aside className="border-r border-gray-200 bg-gray-50 px-4 py-6 flex flex-col">
         <Link href="/dashboard" className="text-lg font-semibold">ZcashConnect</Link>
         <p className="mt-1 text-sm text-gray-600 truncate">{merchant.store_name}</p>
@@ -54,6 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
       <main>{children}</main>
-    </div>
+      </div>
+    </>
   );
 }

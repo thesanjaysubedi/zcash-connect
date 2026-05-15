@@ -4,6 +4,7 @@ import {
   parseApiKeyCreate, parseApiKeyRename,
   parseInvoiceCreate, parseAdminVerify,
   parseRotateInput,
+  parseWaitlistInput,
   parseAmountZec, isOrchardUnifiedAddress,
 } from '@/lib/validation';
 
@@ -155,5 +156,20 @@ describe('parseRotateInput', () => {
   });
   it('rejects non-uuid apiKeyId', () => {
     expect(() => parseRotateInput({ apiKeyId: 'not-uuid', graceHours: 24 })).toThrow();
+  });
+});
+
+describe('parseWaitlistInput', () => {
+  it('accepts valid email + optional source', () => {
+    expect(parseWaitlistInput({ email: 'a@b.co' })).toEqual({ email: 'a@b.co' });
+    expect(parseWaitlistInput({ email: 'a@b.co', source: 'landing-hero' }))
+      .toEqual({ email: 'a@b.co', source: 'landing-hero' });
+  });
+  it('rejects malformed email', () => {
+    expect(() => parseWaitlistInput({ email: 'not-email' })).toThrow();
+    expect(() => parseWaitlistInput({})).toThrow();
+  });
+  it('rejects over-long source', () => {
+    expect(() => parseWaitlistInput({ email: 'a@b.co', source: 's'.repeat(129) })).toThrow();
   });
 });
