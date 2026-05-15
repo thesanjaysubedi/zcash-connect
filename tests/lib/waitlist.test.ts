@@ -47,6 +47,9 @@ describe('joinWaitlist', () => {
   it('rejects invalid email payload', async () => {
     const r = await joinWaitlist({ email: 'not-email' });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toMatch(/email/i);
+    if (!r.ok) {
+      expect(r.kind).toBe('validation');
+      expect(r.error).toMatch(/email/i);
+    }
   });
 });

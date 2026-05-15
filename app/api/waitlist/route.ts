@@ -20,6 +20,10 @@ export async function POST(req: NextRequest) {
     email,
     source: typeof source === 'string' ? source : undefined,
   });
-  if (!r.ok) return apiError(400, 'validation_error', r.error);
+  if (!r.ok) {
+    if (r.kind === 'validation') return apiError(400, 'validation_error', r.error);
+    console.error('joinWaitlist internal error:', r.error);
+    return apiError(500, 'internal_error', 'Could not submit. Try again later.');
+  }
   return NextResponse.json({ ok: true });
 }
